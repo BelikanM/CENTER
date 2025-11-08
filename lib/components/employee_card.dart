@@ -48,7 +48,7 @@ class EmployeeCard extends StatelessWidget {
                           child: Text(
                             name,
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: Colors.black,
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
                             ),
@@ -61,7 +61,7 @@ class EmployeeCard extends StatelessWidget {
                     Text(
                       role,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.8),
+                        color: Colors.black87,
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
@@ -70,7 +70,7 @@ class EmployeeCard extends StatelessWidget {
                     Text(
                       department,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.6),
+                        color: Colors.black54,
                         fontSize: 12,
                       ),
                     ),
@@ -79,7 +79,7 @@ class EmployeeCard extends StatelessWidget {
                       children: [
                         Icon(
                           Icons.email_rounded,
-                          color: Colors.white.withValues(alpha: 0.5),
+                          color: Colors.black54,
                           size: 16,
                         ),
                         const SizedBox(width: 4),
@@ -87,7 +87,7 @@ class EmployeeCard extends StatelessWidget {
                           child: Text(
                             email,
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.5),
+                              color: Colors.black54,
                               fontSize: 12,
                             ),
                             overflow: TextOverflow.ellipsis,
@@ -116,7 +116,7 @@ class EmployeeCard extends StatelessWidget {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: const LinearGradient(
-              colors: [Color(0xFFFF6B35), Color(0xFFFF8A65)],
+              colors: [Color(0xFF00FF88), Color(0xFF00CC66)],
             ),
           ),
           child: avatar.isNotEmpty
@@ -188,15 +188,15 @@ class EmployeeCard extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: const Color(0xFF00D4FF).withValues(alpha: 0.1),
+              color: const Color(0xFF00FF88).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: const Color(0xFF00D4FF).withValues(alpha: 0.3),
+                color: const Color(0xFF00FF88).withValues(alpha: 0.3),
               ),
             ),
             child: const Icon(
               Icons.message_rounded,
-              color: Color(0xFF00D4FF),
+              color: Color(0xFF00FF88),
               size: 20,
             ),
           ),
@@ -208,15 +208,15 @@ class EmployeeCard extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: const Color(0xFFFF6B35).withValues(alpha: 0.1),
+              color: const Color(0xFF00CC66).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: const Color(0xFFFF6B35).withValues(alpha: 0.3),
+                color: const Color(0xFF00CC66).withValues(alpha: 0.3),
               ),
             ),
             child: const Icon(
               Icons.call_rounded,
-              color: Color(0xFFFF6B35),
+              color: Color(0xFF00CC66),
               size: 20,
             ),
           ),

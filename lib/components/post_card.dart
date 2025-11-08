@@ -88,7 +88,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: const LinearGradient(
-                colors: [Color(0xFF00D4FF), Color(0xFF0099CC)],
+                colors: [Color(0xFF00FF88), Color(0xFF00CC66)],
               ),
             ),
             child: const Icon(
@@ -105,7 +105,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                 Text(
                   widget.userName,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: Colors.black,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -113,7 +113,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                 Text(
                   '${widget.userRole} • ${widget.timeAgo}',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
+                    color: Colors.black54,
                     fontSize: 12,
                   ),
                 ),
@@ -124,7 +124,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
             onPressed: () => _showPostOptions(),
             icon: Icon(
               Icons.more_vert_rounded,
-              color: Colors.white.withValues(alpha: 0.6),
+              color: Colors.black54,
             ),
           ),
         ],
@@ -138,7 +138,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
       child: Text(
         widget.content,
         style: const TextStyle(
-          color: Colors.white,
+          color: Colors.black,
           fontSize: 15,
           height: 1.4,
         ),
@@ -160,19 +160,19 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
           fit: BoxFit.cover,
           placeholder: (context, url) => Container(
             height: 200,
-            color: Colors.white.withValues(alpha: 0.1),
+            color: Colors.black.withValues(alpha: 0.05),
             child: const Center(
               child: CircularProgressIndicator(
-                color: Color(0xFF00D4FF),
+                color: Color(0xFF00FF88),
               ),
             ),
           ),
           errorWidget: (context, url, error) => Container(
             height: 200,
-            color: Colors.white.withValues(alpha: 0.1),
+            color: Colors.black.withValues(alpha: 0.05),
             child: const Icon(
               Icons.image_not_supported_rounded,
-              color: Colors.white,
+              color: Colors.black54,
               size: 50,
             ),
           ),
@@ -196,7 +196,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                     child: _buildActionButton(
                       icon: _isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
                       label: widget.likes.toString(),
-                      color: _isLiked ? Colors.red : Colors.white.withValues(alpha: 0.7),
+                      color: _isLiked ? Colors.red : Colors.black54,
                       onTap: _handleLike,
                     ),
                   );
@@ -206,14 +206,14 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
               _buildActionButton(
                 icon: Icons.chat_bubble_outline_rounded,
                 label: widget.comments.toString(),
-                color: Colors.white.withValues(alpha: 0.7),
+                color: Colors.black54,
                 onTap: widget.onComment,
               ),
               const SizedBox(width: 24),
               _buildActionButton(
                 icon: Icons.share_rounded,
                 label: widget.shares.toString(),
-                color: Colors.white.withValues(alpha: 0.7),
+                color: Colors.black54,
                 onTap: widget.onShare,
               ),
               const Spacer(),
@@ -221,7 +221,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                 onPressed: () {},
                 icon: Icon(
                   Icons.bookmark_border_rounded,
-                  color: Colors.white.withValues(alpha: 0.7),
+                  color: Colors.black54,
                 ),
               ),
             ],

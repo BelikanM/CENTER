@@ -25,7 +25,7 @@ class FuturisticCard extends StatelessWidget {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: backgroundColor ?? const Color(0xFFF5F5F5),
+        color: backgroundColor ?? Colors.white,
         gradient: gradientColors != null
             ? LinearGradient(
                 colors: gradientColors!,
@@ -35,17 +35,24 @@ class FuturisticCard extends StatelessWidget {
             : null,
         borderRadius: BorderRadius.circular(borderRadius),
         border: showBorder
-            ? Border.all(
-                color: Colors.grey.withValues(alpha: 0.2),
-                width: 1,
+            ? const Border(
+                top: BorderSide(color: Color(0xFF00FF88), width: 2),
+                left: BorderSide(color: Color(0xFF00FF88), width: 2),
+                right: BorderSide(color: Color(0xFF00FF88), width: 2),
+                bottom: BorderSide(color: Color(0xFF00FF88), width: 2),
               )
             : null,
         boxShadow: showShadow
             ? [
                 BoxShadow(
+                  color: const Color(0xFF00FF88).withValues(alpha: 0.2),
+                  blurRadius: 15,
+                  offset: const Offset(0, 8),
+                ),
+                BoxShadow(
                   color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+                  blurRadius: 25,
+                  offset: const Offset(0, 15),
                 ),
               ]
             : null,

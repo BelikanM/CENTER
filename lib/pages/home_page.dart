@@ -44,12 +44,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment.topRight,
-            radius: 1.2,
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF001122),
-              Color(0xFF000000),
+              Colors.white,
+              Color(0xFFF8FFF8), // Very light green tint
             ],
           ),
         ),
@@ -92,8 +92,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Colors.black.withValues(alpha: 0.8),
-                Colors.transparent,
+                Colors.white,
+                Colors.white.withValues(alpha: 0.9),
               ],
             ),
           ),
@@ -112,11 +112,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: const LinearGradient(
-                            colors: [Color(0xFF00D4FF), Color(0xFF0099CC)],
+                            colors: [Color(0xFF00FF88), Color(0xFF00CC66)],
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF00D4FF).withValues(alpha: _pulseAnimation.value),
+                              color: const Color(0xFF00FF88).withValues(alpha: _pulseAnimation.value),
                               blurRadius: 20,
                               spreadRadius: 2,
                             ),
@@ -138,7 +138,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         Text(
                           'Tableau de bord',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: Colors.black,
                             fontSize: 24,
                             fontWeight: FontWeight.w800,
                           ),
@@ -146,7 +146,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         Text(
                           'Vue d\'ensemble de votre activité',
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
+                            color: Colors.black87,
                             fontSize: 14,
                           ),
                         ),
@@ -158,12 +158,16 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     icon: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.1),
+                        color: const Color(0xFF00FF88).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: const Color(0xFF00FF88),
+                          width: 1,
+                        ),
                       ),
                       child: const Icon(
                         Icons.notifications_rounded,
-                        color: Color(0xFF00D4FF),
+                        color: Color(0xFF00FF88),
                         size: 20,
                       ),
                     ),
@@ -195,14 +199,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       Text(
                         'Bonjour,',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.8),
+                          color: Colors.black87,
                           fontSize: 16,
                         ),
                       ),
                       const SizedBox(height: 4),
                       ShaderMask(
                         shaderCallback: (bounds) => const LinearGradient(
-                          colors: [Color(0xFF00D4FF), Color(0xFFFF6B35)],
+                          colors: [Color(0xFF00FF88), Color(0xFF00CC66)],
                         ).createShader(bounds),
                         child: Text(
                           userName,
@@ -217,7 +221,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       Text(
                         'Prêt à conquérir cette journée ?',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.7),
+                          color: Colors.black87,
                           fontSize: 14,
                         ),
                       ),
@@ -230,11 +234,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF00D4FF), Color(0xFFFF6B35)],
+                      colors: [Color(0xFF00FF88), Color(0xFF00CC66)],
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF00D4FF).withValues(alpha: 0.3),
+                        color: const Color(0xFF00FF88).withValues(alpha: 0.3),
                         blurRadius: 20,
                         offset: const Offset(0, 8),
                       ),
@@ -261,7 +265,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         Text(
           'Statistiques en temps réel',
           style: TextStyle(
-            color: Colors.white,
+            color: Colors.black,
             fontSize: 20,
             fontWeight: FontWeight.w700,
           ),
@@ -274,7 +278,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 title: 'Employés',
                 value: '142',
                 icon: Icons.groups_rounded,
-                color: const Color(0xFF00D4FF),
+                color: const Color(0xFF00FF88),
                 trend: '+12%',
               ),
             ),
@@ -284,7 +288,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 title: 'Publications',
                 value: '89',
                 icon: Icons.article_rounded,
-                color: const Color(0xFFFF6B35),
+                color: const Color(0xFF00CC66),
                 trend: '+8%',
               ),
             ),
@@ -298,7 +302,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 title: 'Marqueurs',
                 value: '24',
                 icon: Icons.location_on_rounded,
-                color: const Color(0xFF9C27B0),
+                color: const Color(0xFF009944),
                 trend: '+3%',
               ),
             ),
@@ -308,7 +312,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 title: 'Messages',
                 value: '356',
                 icon: Icons.chat_rounded,
-                color: const Color(0xFF4CAF50),
+                color: const Color(0xFF00FF88),
                 trend: '+24%',
               ),
             ),
@@ -325,7 +329,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         Text(
           'Actions rapides',
           style: TextStyle(
-            color: Colors.white,
+            color: Colors.black,
             fontSize: 20,
             fontWeight: FontWeight.w700,
           ),
@@ -342,25 +346,25 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             QuickActionCard(
               title: 'Nouveau\nEmployé',
               icon: Icons.person_add_rounded,
-              color: const Color(0xFF00D4FF),
+              color: const Color(0xFF00FF88),
               onTap: () {},
             ),
             QuickActionCard(
               title: 'Publier\nContenu',
               icon: Icons.edit_rounded,
-              color: const Color(0xFFFF6B35),
+              color: const Color(0xFF00CC66),
               onTap: () {},
             ),
             QuickActionCard(
               title: 'Ajouter\nMarqueur',
               icon: Icons.add_location_rounded,
-              color: const Color(0xFF9C27B0),
+              color: const Color(0xFF009944),
               onTap: () {},
             ),
             QuickActionCard(
               title: 'Rapport\nAnalyse',
               icon: Icons.analytics_rounded,
-              color: const Color(0xFF4CAF50),
+              color: const Color(0xFF00FF88),
               onTap: () {},
             ),
           ],
@@ -376,7 +380,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         Text(
           'Activité récente',
           style: TextStyle(
-            color: Colors.white,
+            color: Colors.black,
             fontSize: 20,
             fontWeight: FontWeight.w700,
           ),
@@ -390,23 +394,23 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 title: 'Nouvel employé ajouté',
                 subtitle: 'Marie Dubois - Développeuse',
                 time: 'Il y a 2h',
-                color: const Color(0xFF00D4FF),
+                color: const Color(0xFF00FF88),
               ),
-              Divider(color: Colors.white.withValues(alpha: 0.1)),
+              Divider(color: Colors.black.withValues(alpha: 0.1)),
               _buildActivityItem(
                 icon: Icons.article_rounded,
                 title: 'Publication mise à jour',
                 subtitle: 'Réunion équipe du lundi',
                 time: 'Il y a 4h',
-                color: const Color(0xFFFF6B35),
+                color: const Color(0xFF00CC66),
               ),
-              Divider(color: Colors.white.withValues(alpha: 0.1)),
+              Divider(color: Colors.black.withValues(alpha: 0.1)),
               _buildActivityItem(
                 icon: Icons.location_on_rounded,
                 title: 'Nouveau marqueur créé',
                 subtitle: 'Salle de conférence B',
                 time: 'Il y a 6h',
-                color: const Color(0xFF9C27B0),
+                color: const Color(0xFF009944),
               ),
             ],
           ),
@@ -451,7 +455,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 Text(
                   title,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: Colors.black,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -460,7 +464,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 Text(
                   subtitle,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
+                    color: Colors.black87,
                     fontSize: 14,
                   ),
                 ),
@@ -470,7 +474,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           Text(
             time,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.5),
+              color: Colors.black54,
               fontSize: 12,
             ),
           ),

@@ -21,8 +21,8 @@ class GradientButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = gradientColors ?? [
-      const Color(0xFF00D4FF),
-      const Color(0xFF0099CC),
+      const Color(0xFF00FF88), // Bright green
+      const Color(0xFF00CC66), // Medium green
     ];
 
     return Container(
@@ -35,11 +35,15 @@ class GradientButton extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(borderRadius),
+        border: Border.all(
+          color: const Color(0xFF00FF88),
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
-            color: colors.first.withValues(alpha: 0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
+            color: colors.first.withValues(alpha: 0.4),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
       ),

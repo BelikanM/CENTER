@@ -62,7 +62,7 @@ class QuickActionCard extends StatelessWidget {
                 title,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: Colors.black,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   height: 1.2,

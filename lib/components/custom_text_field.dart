@@ -49,18 +49,18 @@ class _CustomTextFieldState extends State<CustomTextField> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: _isFocused 
-              ? const Color(0xFF00D4FF)
-              : Colors.white.withValues(alpha: 0.1),
+            color: _isFocused
+              ? const Color(0xFF00FF88)
+              : const Color(0xFF00FF88).withValues(alpha: 0.3),
             width: _isFocused ? 2 : 1,
           ),
           boxShadow: _isFocused ? [
             BoxShadow(
-              color: const Color(0xFF00D4FF).withValues(alpha: 0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              color: const Color(0xFF00FF88).withValues(alpha: 0.2),
+              blurRadius: 15,
+              offset: const Offset(0, 6),
             ),
           ] : null,
         ),
@@ -73,32 +73,32 @@ class _CustomTextFieldState extends State<CustomTextField> {
           onTap: widget.onTap,
           readOnly: widget.readOnly,
           style: const TextStyle(
-            color: Colors.white,
+            color: Colors.black,
             fontSize: 16,
             fontWeight: FontWeight.w500,
           ),
           decoration: InputDecoration(
             labelText: widget.label,
             labelStyle: TextStyle(
-              color: _isFocused 
-                ? const Color(0xFF00D4FF)
-                : Colors.white.withValues(alpha: 0.7),
+              color: _isFocused
+                ? const Color(0xFF00FF88)
+                : Colors.black87,
               fontSize: 16,
             ),
             prefixIcon: Container(
               margin: const EdgeInsets.all(12),
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: _isFocused 
-                  ? const Color(0xFF00D4FF).withValues(alpha: 0.1)
-                  : Colors.white.withValues(alpha: 0.05),
+                color: _isFocused
+                  ? const Color(0xFF00FF88).withValues(alpha: 0.1)
+                  : Colors.white,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
                 widget.icon,
-                color: _isFocused 
-                  ? const Color(0xFF00D4FF)
-                  : Colors.white.withValues(alpha: 0.7),
+                color: _isFocused
+                  ? const Color(0xFF00FF88)
+                  : Colors.black54,
                 size: 20,
               ),
             ),
@@ -110,11 +110,11 @@ class _CustomTextFieldState extends State<CustomTextField> {
               },
               icon: Icon(
                 _isObscured ? Icons.visibility_rounded : Icons.visibility_off_rounded,
-                color: Colors.white.withValues(alpha: 0.7),
+                color: Colors.black54,
               ),
             ) : null,
             filled: true,
-            fillColor: const Color(0xFFF5F5F5),
+            fillColor: Colors.white,
             border: InputBorder.none,
             enabledBorder: InputBorder.none,
             focusedBorder: InputBorder.none,

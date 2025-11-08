@@ -31,7 +31,7 @@ class ApiService {
   static bool _isInitialized = false;
 
   // URL de base par défaut (pour la première connexion)
-  static const String _defaultBaseUrl = 'http://192.168.1.98:5000'; // Adresse par défaut pour l'initialisation
+  static const String _defaultBaseUrl = 'http://192.168.1.66:5000'; // Adresse par défaut pour l'initialisation
   static const String apiPrefix = '/api';
 
   // Getter pour l'URL de base (dynamique ou par défaut)
@@ -58,19 +58,24 @@ class ApiService {
     if (_isInitialized) return;
 
     try {
-    developer.log('🔄 Initialisation de l\'API - Détection automatique de l\'IP...', name: 'ApiService');
+      developer.log('🔄 Initialisation de l\'API - Détection automatique de l\'IP...', name: 'ApiService');
 
-      // Essayer d'abord avec l'adresse par défaut
+      // Essayer d'abord avec l'adresse par défaut (IP actuelle du serveur)
       final serverInfo = await _getServerInfo(_defaultBaseUrl);
 
       if (serverInfo != null) {
-        _dynamicBaseUrl = serverInfo['baseUrl'];
+        // NE PAS utiliser baseUrl du serveur, il peut avoir un mauvais port
+        // Utiliser l'IP du serveur avec le port par défaut
+        final serverIp = serverInfo['serverIp'] ?? '192.168.1.66';
+        _dynamicBaseUrl = 'http://$serverIp:5000';
         _isInitialized = true;
-        developer.log('✅ API initialisée avec l\'IP: $_dynamicBaseUrl', name: 'ApiService');
+        developer.log('✅ API initialisée avec l\'IP du serveur: $_dynamicBaseUrl', name: 'ApiService');
         return;
       }
+
+      developer.log('⚠️ Serveur non trouvé sur l\'IP par défaut, tentative de scan réseau...', name: 'ApiService');
     } catch (e) {
-      developer.log('⚠️ Impossible de contacter le serveur par défaut: $e', name: 'ApiService');
+      developer.log('⚠️ Impossible de contacter le serveur sur l\'IP par défaut: $e', name: 'ApiService');
     }
 
     // Si l'adresse par défaut ne fonctionne pas, essayer de scanner le réseau local
@@ -87,7 +92,7 @@ class ApiService {
     }
 
     // En dernier recours, garder l'adresse par défaut
-    developer.log('⚠️ Utilisation de l\'adresse par défaut: $_defaultBaseUrl', name: 'ApiService');
+    developer.log('⚠️ Utilisation de l\'adresse par défaut en dernier recours: $_defaultBaseUrl', name: 'ApiService');
     _dynamicBaseUrl = _defaultBaseUrl;
     _isInitialized = true;
   }
@@ -96,6 +101,7 @@ class ApiService {
   static Future<String?> _scanLocalNetwork() async {
     // Adresses IP communes à tester (réseau local typique)
     final commonIPs = [
+      '192.168.1.66', // IP actuelle détectée par le serveur
       '192.168.1.1', '192.168.1.100', '192.168.1.101', '192.168.1.102',
       '192.168.1.103', '192.168.1.104', '192.168.1.105', '192.168.1.106',
       '192.168.0.1', '192.168.0.100', '192.168.0.101', '192.168.0.102',
@@ -108,7 +114,8 @@ class ApiService {
         final testUrl = 'http://$ip:5000';
         final serverInfo = await _getServerInfo(testUrl);
         if (serverInfo != null) {
-          return serverInfo['baseUrl'];
+          // Retourner l'URL avec le bon port, pas celle du serveur
+          return 'http://$ip:5000';
         }
       } catch (e) {
         // Continuer avec l'IP suivante
@@ -140,6 +147,13 @@ class ApiService {
   static void reset() {
     _dynamicBaseUrl = null;
     _isInitialized = false;
+  }
+
+  // Forcer l'utilisation de l'adresse par défaut (bypass détection automatique)
+  static void useDefaultUrl() {
+    _dynamicBaseUrl = _defaultBaseUrl;
+    _isInitialized = true;
+    developer.log('✅ API forcée sur l\'adresse par défaut: $_defaultBaseUrl', name: 'ApiService');
   }
 
   // ========================================
@@ -246,7 +260,7 @@ class ApiService {
 
   // Mettre à jour le nom
   static Future<Map<String, dynamic>> updateUserName(String token, String name) async {
-    await initialize();
+    await _ensureInitialized();
     try {
       final response = await http.put(
         Uri.parse('$baseUrl$apiPrefix/user/update-name'),
@@ -272,6 +286,7 @@ class ApiService {
     String currentPassword,
     String newPassword,
   ) async {
+    await _ensureInitialized();
     try {
       final response = await http.put(
         Uri.parse('$baseUrl$apiPrefix/user/change-password'),
@@ -296,6 +311,7 @@ class ApiService {
 
   // Upload photo de profil
   static Future<Map<String, dynamic>> uploadProfileImage(String token, File imageFile) async {
+    await _ensureInitialized();
     try {
       var request = http.MultipartRequest(
         'POST',
@@ -328,6 +344,7 @@ class ApiService {
 
   // Supprimer photo de profil
   static Future<Map<String, dynamic>> deleteProfileImage(String token) async {
+    await _ensureInitialized();
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl$apiPrefix/user/delete-profile-image'),
@@ -348,6 +365,7 @@ class ApiService {
 
   // Supprimer compte
   static Future<Map<String, dynamic>> deleteAccount(String token) async {
+    await _ensureInitialized();
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl$apiPrefix/user/delete-account'),
@@ -384,6 +402,7 @@ class ApiService {
     String? visibility,
     List<File>? mediaFiles,
   }) async {
+    await _ensureInitialized();
     try {
       var request = http.MultipartRequest(
         'POST',
@@ -438,6 +457,7 @@ class ApiService {
     int page = 1,
     int limit = 20,
   }) async {
+    await _ensureInitialized();
     try {
       final response = await http.get(
         Uri.parse('$baseUrl$apiPrefix/publications?page=$page&limit=$limit'),
@@ -458,6 +478,7 @@ class ApiService {
 
   // Récupérer les publications d'un utilisateur
   static Future<Map<String, dynamic>> getUserPublications(String token, String userId) async {
+    await _ensureInitialized();
     try {
       final response = await http.get(
         Uri.parse('$baseUrl$apiPrefix/publications/user/$userId'),
@@ -478,6 +499,7 @@ class ApiService {
 
   // Récupérer une publication par ID
   static Future<Map<String, dynamic>> getPublication(String token, String publicationId) async {
+    await _ensureInitialized();
     try {
       final response = await http.get(
         Uri.parse('$baseUrl$apiPrefix/publications/$publicationId'),
@@ -510,6 +532,7 @@ class ApiService {
     String? visibility,
     List<File>? mediaFiles,
   }) async {
+    await _ensureInitialized();
     try {
       var request = http.MultipartRequest(
         'PUT',
@@ -556,6 +579,7 @@ class ApiService {
 
   // Supprimer une publication
   static Future<Map<String, dynamic>> deletePublication(String token, String publicationId) async {
+    await _ensureInitialized();
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl$apiPrefix/publications/$publicationId'),
@@ -576,6 +600,7 @@ class ApiService {
 
   // Liker/Disliker une publication
   static Future<Map<String, dynamic>> toggleLike(String token, String publicationId) async {
+    await _ensureInitialized();
     try {
       final response = await http.post(
         Uri.parse('$baseUrl$apiPrefix/publications/$publicationId/like'),
@@ -596,6 +621,7 @@ class ApiService {
 
   // Récupérer les commentaires d'une publication
   static Future<Map<String, dynamic>> getPublicationComments(String token, String publicationId) async {
+    await _ensureInitialized();
     try {
       final response = await http.get(
         Uri.parse('$baseUrl$apiPrefix/publications/$publicationId/comments'),
@@ -616,6 +642,7 @@ class ApiService {
 
   // Ajouter un commentaire
   static Future<Map<String, dynamic>> addComment(String token, String publicationId, String content) async {
+    await _ensureInitialized();
     try {
       final response = await http.post(
         Uri.parse('$baseUrl$apiPrefix/publications/$publicationId/comments'),
@@ -641,6 +668,7 @@ class ApiService {
     String publicationId,
     int mediaIndex,
   ) async {
+    await _ensureInitialized();
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl$apiPrefix/publications/$publicationId/media/$mediaIndex'),
@@ -674,6 +702,7 @@ class ApiService {
     List<File>? photos,
     List<File>? videos,
   }) async {
+    await _ensureInitialized();
     try {
       var request = http.MultipartRequest(
         'POST',
@@ -732,6 +761,7 @@ class ApiService {
 
   // Récupérer tous les marqueurs
   static Future<Map<String, dynamic>> getMarkers(String token) async {
+    await _ensureInitialized();
     try {
       final response = await http.get(
         Uri.parse('$baseUrl$apiPrefix/markers'),
@@ -752,6 +782,7 @@ class ApiService {
 
   // Récupérer les marqueurs d'un utilisateur
   static Future<Map<String, dynamic>> getUserMarkers(String token, String userId) async {
+    await _ensureInitialized();
     try {
       final response = await http.get(
         Uri.parse('$baseUrl$apiPrefix/markers/user/$userId'),
@@ -772,6 +803,7 @@ class ApiService {
 
   // Récupérer un marqueur par ID
   static Future<Map<String, dynamic>> getMarker(String token, String markerId) async {
+    await _ensureInitialized();
     try {
       final response = await http.get(
         Uri.parse('$baseUrl$apiPrefix/markers/$markerId'),
@@ -800,6 +832,7 @@ class ApiService {
     List<File>? photos,
     List<File>? videos,
   }) async {
+    await _ensureInitialized();
     try {
       var request = http.MultipartRequest(
         'PUT',
@@ -854,6 +887,7 @@ class ApiService {
 
   // Supprimer un marqueur
   static Future<Map<String, dynamic>> deleteMarker(String token, String markerId) async {
+    await _ensureInitialized();
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl$apiPrefix/markers/$markerId'),
@@ -879,6 +913,7 @@ class ApiService {
     String type,
     int index,
   ) async {
+    await _ensureInitialized();
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl$apiPrefix/markers/$markerId/media/$type/$index'),
@@ -903,6 +938,7 @@ class ApiService {
 
   // Lister les employés
   static Future<Map<String, dynamic>> getEmployees(String token) async {
+    await _ensureInitialized();
     try {
       final response = await http.get(
         Uri.parse('$baseUrl$apiPrefix/employees'),
@@ -934,6 +970,7 @@ class ApiService {
     DateTime? certificateStartDate,
     DateTime? certificateEndDate,
   }) async {
+    await _ensureInitialized();
     try {
       var request = http.MultipartRequest(
         'POST',
@@ -1001,6 +1038,7 @@ class ApiService {
     DateTime? certificateStartDate,
     DateTime? certificateEndDate,
   }) async {
+    await _ensureInitialized();
     try {
       var request = http.MultipartRequest(
         'PUT',
@@ -1055,6 +1093,7 @@ class ApiService {
 
   // Supprimer un employé
   static Future<Map<String, dynamic>> deleteEmployee(String token, String employeeId) async {
+    await _ensureInitialized();
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl$apiPrefix/employees/$employeeId'),
@@ -1079,6 +1118,7 @@ class ApiService {
 
   // Lister les utilisateurs
   static Future<Map<String, dynamic>> getUsers(String token) async {
+    await _ensureInitialized();
     try {
       final response = await http.get(
         Uri.parse('$baseUrl$apiPrefix/users'),
@@ -1103,6 +1143,7 @@ class ApiService {
     String userId,
     String status,
   ) async {
+    await _ensureInitialized();
     try {
       final response = await http.put(
         Uri.parse('$baseUrl$apiPrefix/users/$userId/status'),
@@ -1124,6 +1165,7 @@ class ApiService {
 
   // Supprimer un utilisateur
   static Future<Map<String, dynamic>> deleteUser(String token, String userId) async {
+    await _ensureInitialized();
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl$apiPrefix/users/$userId'),

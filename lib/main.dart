@@ -159,8 +159,9 @@ void main() async {
     ),
   );
   
-  // Initialiser le service API
-  await ApiService.initialize();
+  // Forcer l'utilisation de l'adresse par défaut (192.168.1.66:5000)
+  // Évite les problèmes de détection automatique
+  ApiService.useDefaultUrl();
   
   runApp(const CenterApp());
 }
@@ -187,74 +188,92 @@ class CenterApp extends StatelessWidget {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-      colorScheme: ColorScheme.fromSwatch(
-        brightness: Brightness.light,
-        primarySwatch: Colors.green,
-      ).copyWith(
-        primary: const Color(0xFF25D366), // WhatsApp green
-        secondary: const Color(0xFF128C7E), // WhatsApp dark green
-        tertiary: const Color(0xFF075E54), // WhatsApp darker green
+      colorScheme: const ColorScheme.light(
+        primary: Color(0xFF00FF88), // Bright green
+        secondary: Color(0xFF00CC66), // Medium green
+        tertiary: Color(0xFF009944), // Dark green
         surface: Colors.white,
-        onSurface: Colors.black87,
+        onSurface: Colors.black,
+        outline: Color(0xFF00FF88), // Green borders
       ),
       textTheme: GoogleFonts.interTextTheme().apply(
-        bodyColor: Colors.black87,
-        displayColor: Colors.black87,
+        bodyColor: Colors.black,
+        displayColor: Colors.black,
       ),
       scaffoldBackgroundColor: Colors.white,
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.white,
         elevation: 0,
         systemOverlayStyle: SystemUiOverlayStyle.dark,
-        foregroundColor: Colors.black87,
+        foregroundColor: Colors.black,
+        surfaceTintColor: Colors.white,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF25D366), // WhatsApp green
-          foregroundColor: Colors.white,
-          elevation: 0,
+          backgroundColor: const Color(0xFF00FF88), // Bright green
+          foregroundColor: Colors.black,
+          elevation: 2,
+          shadowColor: const Color(0xFF00FF88).withValues(alpha: 0.3),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(
+              color: Color(0xFF00FF88),
+              width: 1,
+            ),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         ),
       ),
       cardTheme: CardThemeData(
-        color: const Color(0xFFF5F5F5), // Light gray background
-        elevation: 0,
+        color: Colors.white,
+        elevation: 4,
+        shadowColor: Colors.black.withValues(alpha: 0.1),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(
-            color: Colors.grey.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(
+            color: Color(0xFF00FF88),
             width: 1,
           ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: const Color(0xFFF5F5F5), // Light gray background
+        fillColor: Colors.white,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: Colors.grey.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(
+            color: Color(0xFF00FF88),
+            width: 1,
           ),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: Colors.grey.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(
+            color: Color(0xFF00FF88),
+            width: 1,
           ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(
-            color: Color(0xFF25D366), // WhatsApp green
+            color: Color(0xFF00FF88),
             width: 2,
           ),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        labelStyle: const TextStyle(color: Colors.black54),
-        hintStyle: const TextStyle(color: Colors.black38),
+        labelStyle: const TextStyle(color: Colors.black87),
+        hintStyle: const TextStyle(color: Colors.black54),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: Color(0xFF00FF88),
+        thickness: 1,
+      ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: Colors.white,
+        selectedItemColor: Color(0xFF00FF88),
+        unselectedItemColor: Colors.black54,
+        elevation: 8,
+        type: BottomNavigationBarType.fixed,
       ),
     );
   }

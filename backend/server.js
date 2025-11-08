@@ -360,7 +360,7 @@ const verifyCanManageUsers = async (req, res, next) => {
 
 // Inscription + OTP
 app.post('/api/auth/register', async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, name } = req.body;
   if (!email || !password) return res.status(400).json({ message: 'Email et mot de passe requis' });
   if (password.length < 6) return res.status(400).json({ message: 'Mot de passe trop court' });
 
@@ -371,7 +371,7 @@ app.post('/api/auth/register', async (req, res) => {
     const otp = generateOTP();
     const otpExpires = Date.now() + 10 * 60 * 1000;
 
-    const user = new User({ email, password: hashedPassword, otp, otpExpires });
+    const user = new User({ email, password: hashedPassword, name: name || '', otp, otpExpires });
     await user.save();
 
     await transporter.sendMail({

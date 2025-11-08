@@ -73,8 +73,8 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFFE8F5E8), // Light green background
               Colors.white,
+              Color(0xFFF8FFF8), // Very light green tint
             ],
           ),
         ),
@@ -125,10 +125,19 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: Colors.white,
+            border: Border.all(
+              color: const Color(0xFF00FF88),
+              width: 3,
+            ),
             boxShadow: [
               BoxShadow(
+                color: const Color(0xFF00FF88).withValues(alpha: 0.3),
+                blurRadius: 25,
+                offset: const Offset(0, 8),
+              ),
+              BoxShadow(
                 color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 20,
+                blurRadius: 15,
                 offset: const Offset(0, 5),
               ),
             ],
@@ -136,7 +145,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Image.asset(
-              'LOGO VECTORISE PNG.png',
+              'assets/images/app_logo.png',
               fit: BoxFit.contain,
             ),
           ),
@@ -144,7 +153,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
         const SizedBox(height: 24),
         ShaderMask(
           shaderCallback: (bounds) => const LinearGradient(
-            colors: [Color(0xFF25D366), Color(0xFF128C7E)],
+            colors: [Color(0xFF00FF88), Color(0xFF00CC66)],
           ).createShader(bounds),
           child: Text(
             'SETRAF',
@@ -153,6 +162,13 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
               fontWeight: FontWeight.w900,
               color: Colors.white,
               letterSpacing: 4,
+              shadows: [
+                Shadow(
+                  color: const Color(0xFF00FF88).withValues(alpha: 0.5),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
           ),
         ),
@@ -161,8 +177,9 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
           'Personnel & Social Network',
           style: TextStyle(
             fontSize: 16,
-            color: Colors.black54,
-            fontWeight: FontWeight.w300,
+            color: Colors.black87,
+            fontWeight: FontWeight.w400,
+            letterSpacing: 0.5,
           ),
         ),
       ],
@@ -247,7 +264,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
           child: Text(
             _isLogin ? 'S\'inscrire' : 'Se connecter',
             style: const TextStyle(
-              color: Color(0xFF25D366),
+              color: Color(0xFF00FF88),
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -261,28 +278,38 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isError 
+        color: isError
           ? Colors.red.withValues(alpha: 0.1)
-          : const Color(0xFFE8F5E8),
+          : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isError 
-            ? Colors.red.withValues(alpha: 0.3)
-            : const Color(0xFF25D366).withValues(alpha: 0.3),
+          color: isError
+            ? Colors.red
+            : const Color(0xFF00FF88),
+          width: 2,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: isError
+              ? Colors.red.withValues(alpha: 0.2)
+              : const Color(0xFF00FF88).withValues(alpha: 0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Icon(
             isError ? Icons.error_rounded : Icons.info_rounded,
-            color: isError ? Colors.red : const Color(0xFF25D366),
+            color: isError ? Colors.red : const Color(0xFF00FF88),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               _message,
               style: TextStyle(
-                color: isError ? Colors.red : const Color(0xFF25D366),
+                color: Colors.black,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -340,10 +367,37 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
   }
 
   Future<void> _register() async {
-    if (_nameController.text.isEmpty || 
-        _emailController.text.isEmpty || 
-        _passwordController.text.isEmpty) {
-      setState(() => _message = 'Veuillez remplir tous les champs');
+    // Validation plus stricte des champs
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    // DEBUG : Afficher les valeurs
+    debugPrint('🔍 DEBUG INSCRIPTION:');
+    debugPrint('  Nom: "$name" (longueur: ${name.length}, vide: ${name.isEmpty})');
+    debugPrint('  Email: "$email" (longueur: ${email.length}, vide: ${email.isEmpty})');
+    debugPrint('  Password: "$password" (longueur: ${password.length}, vide: ${password.isEmpty})');
+
+    if (name.isEmpty || email.isEmpty || password.isEmpty) {
+      List<String> missingFields = [];
+      if (name.isEmpty) missingFields.add('nom');
+      if (email.isEmpty) missingFields.add('email');
+      if (password.isEmpty) missingFields.add('mot de passe');
+      
+      setState(() => _message = 'Champs manquants: ${missingFields.join(", ")}');
+      return;
+    }
+
+    // Validation du format email
+    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+    if (!emailRegex.hasMatch(email)) {
+      setState(() => _message = 'Format email invalide: $email');
+      return;
+    }
+
+    // Validation de la longueur du mot de passe
+    if (password.length < 6) {
+      setState(() => _message = 'Mot de passe trop court (${password.length} caractères, minimum 6)');
       return;
     }
 
@@ -353,17 +407,16 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
     });
 
     try {
-      final result = await ApiService.register(
-        _emailController.text,
-        _passwordController.text,
-        _nameController.text,
-      );
-      
+      debugPrint('📤 Envoi de la requête d\'inscription...');
+      final result = await ApiService.register(email, password, name);
+
+      debugPrint('✅ Inscription réussie: $result');
       setState(() {
         _showOtpField = true;
         _message = result['message'] ?? 'Code OTP envoyé !';
       });
     } catch (e) {
+      debugPrint('❌ Erreur inscription: $e');
       setState(() => _message = 'Erreur: $e');
     } finally {
       setState(() => _isLoading = false);
