@@ -7,6 +7,9 @@ import 'employees_page.dart';
 import 'profile_page.dart';
 import 'auth_page.dart';
 import 'admin_page.dart';
+import 'create/create_publication_page.dart';
+import 'create/create_employee_page.dart';
+import 'create/create_marker_page.dart';
 
 class MainPage extends StatelessWidget {
   const MainPage({super.key});
@@ -19,27 +22,44 @@ class MainPage extends StatelessWidget {
           return const AuthPage();
         }
 
+        // Vérifier si l'utilisateur est admin
+        final user = appProvider.currentUser;
+        final isAdmin = user?['status'] == 'admin' || 
+                       user?['email'] == 'nyundumathryme@gmail.com' ||
+                       user?['email'] == 'nyundumathryme@gmail';
+
+        // Pages disponibles selon le rôle
+        final List<Widget> pages = isAdmin 
+          ? [
+              const HomePage(),
+              const SocialPage(),
+              EmployeesPage(token: appProvider.accessToken ?? ''),
+              const ProfilePage(),
+              const AdminPage(),
+            ]
+          : [
+              const HomePage(),
+              const SocialPage(),
+              const ProfilePage(),
+            ];
+
         return Scaffold(
           body: IndexedStack(
             index: appProvider.currentIndex,
-            children: [
-              const HomePage(),
-              const SocialPage(),
-              const EmployeesPage(),
-              const ProfilePage(),
-              const AdminPage(),
-            ],
+            children: pages,
           ),
-          floatingActionButton: _buildFloatingActionButton(context, appProvider),
-          // Use centerFloat - no docking since we removed the gap completely
+          floatingActionButton: _buildFloatingActionButton(context, appProvider, isAdmin),
           floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-          bottomNavigationBar: _buildBottomNavigationBar(context, appProvider),
+          bottomNavigationBar: _buildBottomNavigationBar(context, appProvider, isAdmin),
         );
       },
     );
   }
 
-  Widget _buildFloatingActionButton(BuildContext context, AppProvider appProvider) {
+  Widget _buildFloatingActionButton(BuildContext context, AppProvider appProvider, bool isAdmin) {
+    // N'afficher le FAB que pour les admins
+    if (!isAdmin) return const SizedBox.shrink();
+    
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -69,7 +89,7 @@ class MainPage extends StatelessWidget {
     );
   }
 
-  Widget _buildBottomNavigationBar(BuildContext context, AppProvider appProvider) {
+  Widget _buildBottomNavigationBar(BuildContext context, AppProvider appProvider, bool isAdmin) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -93,33 +113,53 @@ class MainPage extends StatelessWidget {
         selectedItemColor: const Color(0xFF25D366),
         unselectedItemColor: Colors.black54,
         currentIndex: appProvider.currentIndex,
-        onTap: appProvider.setCurrentIndex,
+        onTap: (index) {
+          // Pour les non-admins, tous les index de la barre sont accessibles
+          // car elle ne contient que Home (0), Social (1), et Profile (2)
+          // Pour les admins, tous les index sont accessibles
+          appProvider.setCurrentIndex(index);
+        },
         elevation: 0,
         selectedFontSize: 12,
         unselectedFontSize: 12,
         iconSize: 28,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_rounded),
-            label: 'Accueil',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.groups_rounded),
-            label: 'Social',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.business_center_rounded),
-            label: 'Employés',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_rounded),
-            label: 'Profil',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.admin_panel_settings_rounded),
-            label: 'Admin',
-          ),
-        ],
+        items: isAdmin 
+          ? const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home_rounded),
+                label: 'Accueil',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.groups_rounded),
+                label: 'Social',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.business_center_rounded),
+                label: 'Employés',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.person_rounded),
+                label: 'Profil',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.admin_panel_settings_rounded),
+                label: 'Admin',
+              ),
+            ]
+          : const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home_rounded),
+                label: 'Accueil',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.groups_rounded),
+                label: 'Social',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.person_rounded),
+                label: 'Profil',
+              ),
+            ],
       ),
     );
   }
@@ -164,7 +204,18 @@ class MainPage extends StatelessWidget {
                   color: const Color(0xFF25D366),
                   onTap: () {
                     Navigator.pop(context);
-                    // Naviguer vers création de publication
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const CreatePublicationPage(),
+                      ),
+                    ).then((result) {
+                      if (result == true && context.mounted) {
+                        // Rafraîchir la liste des publications si nécessaire
+                        final appProvider = Provider.of<AppProvider>(context, listen: false);
+                        appProvider.setCurrentIndex(1); // Rediriger vers Social
+                      }
+                    });
                   },
                 ),
                 _buildCreateOption(
@@ -174,7 +225,18 @@ class MainPage extends StatelessWidget {
                   color: const Color(0xFF128C7E),
                   onTap: () {
                     Navigator.pop(context);
-                    // Naviguer vers création d'employé
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const CreateEmployeePage(),
+                      ),
+                    ).then((result) {
+                      if (result == true && context.mounted) {
+                        // Rafraîchir la liste des employés
+                        final appProvider = Provider.of<AppProvider>(context, listen: false);
+                        appProvider.setCurrentIndex(2); // Rediriger vers Employees
+                      }
+                    });
                   },
                 ),
                 _buildCreateOption(
@@ -184,7 +246,22 @@ class MainPage extends StatelessWidget {
                   color: const Color(0xFF075E54),
                   onTap: () {
                     Navigator.pop(context);
-                    // Naviguer vers création de marqueur
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const CreateMarkerPage(),
+                      ),
+                    ).then((result) {
+                      if (result == true && context.mounted) {
+                        // Afficher un message de succès
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Marqueur créé avec succès !'),
+                            backgroundColor: Color(0xFF25D366),
+                          ),
+                        );
+                      }
+                    });
                   },
                 ),
               ],

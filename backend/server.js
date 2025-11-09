@@ -10,6 +10,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { WebSocketServer } = require('ws');
 
 const app = express();
 
@@ -134,6 +135,8 @@ const employeeSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   phone: { type: String, required: true },
+  role: { type: String, default: '' },
+  department: { type: String, default: 'IT' },
   faceImage: { type: String, default: '' },
   certificate: { type: String, default: '' },
   startDate: { type: Date },
@@ -144,6 +147,18 @@ const employeeSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 const Employee = mongoose.model('Employee', employeeSchema);
+
+// Modèle Notification
+const notificationSchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  type: { type: String, enum: ['employee_created', 'employee_updated', 'employee_deleted', 'publication', 'message', 'system'], required: true },
+  title: { type: String, required: true },
+  message: { type: String, required: true },
+  data: { type: mongoose.Schema.Types.Mixed },
+  read: { type: Boolean, default: false },
+  createdAt: { type: Date, default: Date.now }
+});
+const Notification = mongoose.model('Notification', notificationSchema);
 
 // Modèle Publication
 const publicationSchema = new mongoose.Schema({
@@ -167,8 +182,18 @@ const publicationSchema = new mongoose.Schema({
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   comments: [{
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    content: { type: String, required: true },
-    createdAt: { type: Date, default: Date.now }
+    content: { type: String }, // Optionnel si média seulement
+    media: [{
+      type: { type: String, enum: ['image', 'video', 'audio'], required: true },
+      url: { type: String, required: true },
+      filename: { type: String, required: true },
+      duration: { type: Number } // Pour audio/vidéo
+    }],
+    replyTo: { type: mongoose.Schema.Types.ObjectId }, // ID du commentaire parent (pour réponses)
+    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    isEdited: { type: Boolean, default: false },
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now }
   }],
   isActive: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },
@@ -190,6 +215,25 @@ const markerSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 });
 const Marker = mongoose.model('Marker', markerSchema);
+
+// Modèle Story (Statut/Histoire - expire après 24h)
+const storySchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  content: { type: String, default: '' }, // Texte de la story
+  mediaUrl: { type: String, default: '' }, // URL de l'image/vidéo
+  mediaType: { type: String, enum: ['image', 'video', 'text'], default: 'text' },
+  backgroundColor: { type: String, default: '#00D4FF' }, // Couleur de fond pour stories texte
+  duration: { type: Number, default: 5 }, // Durée d'affichage en secondes
+  expiresAt: { type: Date, required: true }, // Date d'expiration (24h après création)
+  viewedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Liste des utilisateurs qui ont vu
+  isActive: { type: Boolean, default: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
+// Index pour supprimer automatiquement les stories expirées
+storySchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
+const Story = mongoose.model('Story', storySchema);
 
 // ========================================
 // CONFIGURATION UPLOADS SPÉCIFIQUES
@@ -264,6 +308,68 @@ const markerUpload = multer({
       cb(null, true);
     } else {
       cb(new Error('Seules les images et vidéos sont autorisées'), false);
+    }
+  }
+});
+
+// Upload pour commentaires (images + vidéos + audio)
+const commentStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = 'uploads/comments/';
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const unique = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'comment-' + unique + path.extname(file.originalname));
+  }
+});
+
+const commentUpload = multer({
+  storage: commentStorage,
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = [
+      // Images
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+      // Vidéos
+      'video/mp4', 'video/avi', 'video/mov', 'video/wmv', 'video/flv', 'video/webm', 'video/mkv',
+      // Audio
+      'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/m4a', 'audio/webm', 'audio/aac'
+    ];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Format de fichier non autorisé'), false);
+    }
+  }
+});
+
+// Upload pour stories (images + vidéos)
+const storyStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = 'uploads/stories/';
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const unique = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'story-' + unique + path.extname(file.originalname));
+  }
+});
+
+const storyUpload = multer({
+  storage: storyStorage,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB pour vidéos
+  fileFilter: (req, file, cb) => {
+    const allowed = [
+      'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp',
+      'video/mp4', 'video/avi', 'video/mov', 'video/wmv', 'video/webm', 'video/mkv'
+    ];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Format de fichier non autorisé pour les stories'), false);
     }
   }
 });
@@ -436,8 +542,9 @@ app.post('/api/auth/verify-otp', async (req, res) => {
   console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'Défini (longueur: ' + process.env.JWT_SECRET.length + ')' : 'NON DÉFINI!');
   console.log('JWT_REFRESH_SECRET:', process.env.JWT_REFRESH_SECRET ? 'Défini' : 'NON DÉFINI!');
 
-  const accessToken = jwt.sign({ userId: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '15m' });
-  const refreshToken = jwt.sign({ userId: user._id }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
+  // Token valide pendant 7 jours au lieu de 15 minutes
+  const accessToken = jwt.sign({ userId: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
+  const refreshToken = jwt.sign({ userId: user._id }, process.env.JWT_REFRESH_SECRET, { expiresIn: '30d' });
 
   console.log('Access Token généré (premiers 30 car):', accessToken.substring(0, 30) + '...');
   console.log('Refresh Token généré (premiers 30 car):', refreshToken.substring(0, 30) + '...');
@@ -488,73 +595,211 @@ app.post('/api/auth/refresh-token', (req, res) => {
       return res.status(404).json({ message: 'Utilisateur non trouvé' });
     }
 
-    const newAccessToken = jwt.sign({ userId: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '15m' });
+    // Token valide pendant 7 jours
+    const newAccessToken = jwt.sign({ userId: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
     console.log('✅ Nouveau access token généré (premiers 30 car):', newAccessToken.substring(0, 30) + '...');
     
     res.json({ accessToken: newAccessToken });
   });
 });
 
+// Route de login direct pour les tests (sans OTP)
+app.post('/api/auth/admin-login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email });
+    
+    if (!user) {
+      return res.status(400).json({ message: 'Utilisateur non trouvé' });
+    }
+
+    // Vérifier le mot de passe avec bcrypt
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(400).json({ message: 'Mot de passe incorrect' });
+    }
+
+    // Générer les tokens - valides pendant 7 jours
+    const accessToken = jwt.sign({ userId: user._id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    const refreshToken = jwt.sign({ userId: user._id }, process.env.JWT_REFRESH_SECRET, { expiresIn: '30d' });
+
+    res.json({
+      message: 'Connexion réussie',
+      accessToken,
+      refreshToken,
+      user: { 
+        email: user.email, 
+        name: user.name, 
+        profileImage: user.profileImage ? `${BASE_URL}/${user.profileImage}` : '', 
+        status: user.status 
+      }
+    });
+  } catch (error) {
+    console.error('Erreur admin-login:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
 // ========================================
 // ROUTES : PROFIL UTILISATEUR
 // ========================================
 
+// =======================
+// GESTION UTILISATEUR
+// =======================
+
+// Récupérer le profil utilisateur
+app.get('/api/user/profile', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).select('-password');
+    if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé' });
+
+    const userWithUrl = {
+      ...user.toObject(),
+      profileImage: user.profileImage ? `${BASE_URL}/${user.profileImage}` : ''
+    };
+
+    res.json({ user: userWithUrl });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
 app.put('/api/user/update-name', verifyToken, async (req, res) => {
-  const { name } = req.body;
-  if (!name?.trim()) return res.status(400).json({ message: 'Nom requis' });
+  try {
+    const { name } = req.body;
+    if (!name?.trim()) return res.status(400).json({ message: 'Nom requis' });
 
-  const user = await User.findById(req.user.userId);
-  if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé' });
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé' });
 
-  user.name = name.trim();
-  await user.save();
+    user.name = name.trim();
+    await user.save();
 
-  res.json({ message: 'Nom mis à jour', user: { email: user.email, name: user.name } });
+    const userWithUrl = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      profileImage: user.profileImage ? `${BASE_URL}/${user.profileImage}` : '',
+      createdAt: user.createdAt
+    };
+
+    res.json({ 
+      message: 'Nom mis à jour', 
+      user: userWithUrl 
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
 });
 
 app.put('/api/user/change-password', verifyToken, async (req, res) => {
-  const { currentPassword, newPassword } = req.body;
-  if (!currentPassword || !newPassword) return res.status(400).json({ message: 'Champs requis' });
-  if (newPassword.length < 6) return res.status(400).json({ message: 'Mot de passe trop court' });
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) return res.status(400).json({ message: 'Champs requis' });
+    if (newPassword.length < 6) return res.status(400).json({ message: 'Mot de passe trop court' });
 
-  const user = await User.findById(req.user.userId);
-  if (!(await bcrypt.compare(currentPassword, user.password))) {
-    return res.status(400).json({ message: 'Mot de passe actuel incorrect' });
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé' });
+    
+    if (!(await bcrypt.compare(currentPassword, user.password))) {
+      return res.status(400).json({ message: 'Mot de passe actuel incorrect' });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    const userWithUrl = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      profileImage: user.profileImage ? `${BASE_URL}/${user.profileImage}` : '',
+      createdAt: user.createdAt
+    };
+
+    res.json({ 
+      message: 'Mot de passe changé',
+      user: userWithUrl
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
   }
-
-  user.password = await bcrypt.hash(newPassword, 10);
-  await user.save();
-
-  res.json({ message: 'Mot de passe changé' });
 });
 
 app.post('/api/user/upload-profile-image', verifyToken, upload.single('profileImage'), async (req, res) => {
-  const user = await User.findById(req.user.userId);
-  if (!req.file) return res.status(400).json({ message: 'Image requise' });
+  console.log('\n=== UPLOAD PROFILE IMAGE ===');
+  console.log('Headers:', req.headers);
+  console.log('File:', req.file);
+  console.log('User ID:', req.user?.userId);
+  
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé' });
+    if (!req.file) return res.status(400).json({ message: 'Image requise' });
 
-  if (user.profileImage) {
-    const oldPath = path.join(__dirname, user.profileImage);
-    if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    // Supprimer l'ancienne image si elle existe
+    if (user.profileImage) {
+      const oldPath = path.join(__dirname, user.profileImage);
+      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    }
+
+    user.profileImage = req.file.path.replace(/\\/g, '/');
+    await user.save();
+
+    const userWithUrl = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      profileImage: `${BASE_URL}/${user.profileImage}`,
+      createdAt: user.createdAt
+    };
+
+    console.log('✅ Photo mise à jour:', userWithUrl.profileImage);
+    res.json({
+      message: 'Photo mise à jour',
+      user: userWithUrl
+    });
+  } catch (err) {
+    console.error('❌ Erreur upload:', err);
+    res.status(500).json({ message: 'Erreur serveur' });
   }
-
-  user.profileImage = req.file.path.replace(/\\/g, '/');
-  await user.save();
-
-  res.json({
-    message: 'Photo mise à jour',
-    profileImageUrl: `${BASE_URL}/${user.profileImage}`
-  });
 });
 
 app.delete('/api/user/delete-profile-image', verifyToken, async (req, res) => {
-  const user = await User.findById(req.user.userId);
-  if (user.profileImage) {
-    const imagePath = path.join(__dirname, user.profileImage);
-    if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
-    user.profileImage = '';
-    await user.save();
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé' });
+
+    if (user.profileImage) {
+      const imagePath = path.join(__dirname, user.profileImage);
+      if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
+      user.profileImage = '';
+      await user.save();
+    }
+
+    const userWithUrl = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      profileImage: '',
+      createdAt: user.createdAt
+    };
+
+    res.json({ 
+      message: 'Photo supprimée',
+      user: userWithUrl
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
   }
-  res.json({ message: 'Photo supprimée' });
 });
 
 app.delete('/api/user/delete-account', verifyToken, async (req, res) => {
@@ -607,6 +852,13 @@ app.post('/api/publications', verifyToken, publicationUpload.array('media', 10),
   await pub.populate('userId', 'name email profileImage');
 
   console.log('✅ Publication créée, ID:', pub._id);
+  
+  // Diffuser la nouvelle publication via WebSocket
+  broadcastToAll({
+    type: 'new_publication',
+    publication: pub
+  });
+  
   res.status(201).json({ message: 'Publication créée', publication: pub });
 });
 
@@ -722,6 +974,308 @@ app.get('/api/publications/:id/comments', verifyToken, async (req, res) => {
 });
 
 // Ajouter un commentaire
+// ========================================
+// ROUTES : COMMENTAIRES (Mini-Chat Temps Réel)
+// ========================================
+
+// Récupérer tous les commentaires d'une publication
+app.get('/api/publications/:id/comments', verifyToken, async (req, res) => {
+  try {
+    const pub = await Publication.findById(req.params.id)
+      .populate('comments.userId', 'name email profileImage');
+    
+    if (!pub || !pub.isActive) {
+      return res.status(404).json({ message: 'Publication non trouvée' });
+    }
+
+    // Formatter les commentaires avec les URLs complètes
+    const formattedComments = pub.comments.map(comment => ({
+      _id: comment._id,
+      userId: comment.userId ? {
+        _id: comment.userId._id,
+        name: comment.userId.name,
+        email: comment.userId.email,
+        profileImage: comment.userId.profileImage ? `${BASE_URL}/${comment.userId.profileImage}` : ''
+      } : null,
+      content: comment.content,
+      media: comment.media?.map(m => ({
+        type: m.type,
+        url: `${BASE_URL}/${m.url}`,
+        duration: m.duration
+      })) || [],
+      replyTo: comment.replyTo,
+      likes: comment.likes,
+      isEdited: comment.isEdited,
+      createdAt: comment.createdAt,
+      updatedAt: comment.updatedAt
+    }));
+
+    res.json({ comments: formattedComments });
+  } catch (e) {
+    console.error('Erreur récupération commentaires:', e);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+// Ajouter un commentaire (texte, image, vidéo, audio)
+app.post('/api/publications/:id/comments', verifyToken, commentUpload.array('media', 5), async (req, res) => {
+  try {
+    const { content, replyTo } = req.body;
+    
+    // Validation : au moins du contenu OU un média
+    if (!content?.trim() && (!req.files || req.files.length === 0)) {
+      return res.status(400).json({ message: 'Commentaire vide' });
+    }
+
+    const pub = await Publication.findById(req.params.id);
+    if (!pub || !pub.isActive) {
+      return res.status(404).json({ message: 'Publication non trouvée' });
+    }
+
+    // Construire le commentaire
+    const newComment = {
+      userId: req.user.userId,
+      content: content?.trim() || '',
+      media: [],
+      replyTo: replyTo || null,
+      likes: [],
+      isEdited: false
+    };
+
+    // Ajouter les médias si présents
+    if (req.files && req.files.length > 0) {
+      newComment.media = req.files.map(file => {
+        let mediaType = 'image';
+        if (file.mimetype.startsWith('video/')) mediaType = 'video';
+        else if (file.mimetype.startsWith('audio/')) mediaType = 'audio';
+
+        return {
+          type: mediaType,
+          url: file.path.replace(/\\/g, '/'),
+          filename: file.filename,
+          duration: null // À implémenter côté client si besoin
+        };
+      });
+    }
+
+    pub.comments.push(newComment);
+    await pub.save();
+
+    // Récupérer le commentaire ajouté avec populate
+    await pub.populate('comments.userId', 'name email profileImage');
+    const addedComment = pub.comments[pub.comments.length - 1];
+
+    // Formatter la réponse
+    const formattedComment = {
+      _id: addedComment._id,
+      userId: {
+        _id: addedComment.userId._id,
+        name: addedComment.userId.name,
+        email: addedComment.userId.email,
+        profileImage: addedComment.userId.profileImage ? `${BASE_URL}/${addedComment.userId.profileImage}` : ''
+      },
+      content: addedComment.content,
+      media: addedComment.media.map(m => ({
+        type: m.type,
+        url: `${BASE_URL}/${m.url}`,
+        duration: m.duration
+      })),
+      replyTo: addedComment.replyTo,
+      likes: addedComment.likes,
+      isEdited: addedComment.isEdited,
+      createdAt: addedComment.createdAt,
+      updatedAt: addedComment.updatedAt
+    };
+
+    // 🔥 Broadcast via WebSocket
+    if (typeof broadcastToAll === 'function') {
+      broadcastToAll({
+        type: 'new_comment',
+        publicationId: req.params.id,
+        comment: formattedComment
+      });
+    }
+
+    res.status(201).json({ 
+      message: 'Commentaire ajouté',
+      comment: formattedComment
+    });
+  } catch (e) {
+    console.error('Erreur ajout commentaire:', e);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+// Modifier un commentaire
+app.put('/api/publications/:pubId/comments/:commentId', verifyToken, async (req, res) => {
+  try {
+    const { content } = req.body;
+    
+    if (!content?.trim()) {
+      return res.status(400).json({ message: 'Contenu requis' });
+    }
+
+    const pub = await Publication.findById(req.params.pubId);
+    if (!pub || !pub.isActive) {
+      return res.status(404).json({ message: 'Publication non trouvée' });
+    }
+
+    const comment = pub.comments.id(req.params.commentId);
+    if (!comment) {
+      return res.status(404).json({ message: 'Commentaire non trouvé' });
+    }
+
+    // Vérifier que c'est bien l'auteur
+    if (comment.userId.toString() !== req.user.userId) {
+      return res.status(403).json({ message: 'Accès refusé' });
+    }
+
+    comment.content = content.trim();
+    comment.isEdited = true;
+    comment.updatedAt = new Date();
+    
+    await pub.save();
+    await pub.populate('comments.userId', 'name email profileImage');
+
+    const updatedComment = pub.comments.id(req.params.commentId);
+    
+    // Formatter la réponse
+    const formattedComment = {
+      _id: updatedComment._id,
+      userId: {
+        _id: updatedComment.userId._id,
+        name: updatedComment.userId.name,
+        email: updatedComment.userId.email,
+        profileImage: updatedComment.userId.profileImage ? `${BASE_URL}/${updatedComment.userId.profileImage}` : ''
+      },
+      content: updatedComment.content,
+      media: updatedComment.media.map(m => ({
+        type: m.type,
+        url: `${BASE_URL}/${m.url}`,
+        duration: m.duration
+      })),
+      replyTo: updatedComment.replyTo,
+      likes: updatedComment.likes,
+      isEdited: updatedComment.isEdited,
+      createdAt: updatedComment.createdAt,
+      updatedAt: updatedComment.updatedAt
+    };
+
+    // 🔥 Broadcast via WebSocket
+    if (typeof broadcastToAll === 'function') {
+      broadcastToAll({
+        type: 'edit_comment',
+        publicationId: req.params.pubId,
+        comment: formattedComment
+      });
+    }
+
+    res.json({ 
+      message: 'Commentaire modifié',
+      comment: formattedComment
+    });
+  } catch (e) {
+    console.error('Erreur modification commentaire:', e);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+// Supprimer un commentaire
+app.delete('/api/publications/:pubId/comments/:commentId', verifyToken, async (req, res) => {
+  try {
+    const pub = await Publication.findById(req.params.pubId);
+    if (!pub || !pub.isActive) {
+      return res.status(404).json({ message: 'Publication non trouvée' });
+    }
+
+    const comment = pub.comments.id(req.params.commentId);
+    if (!comment) {
+      return res.status(404).json({ message: 'Commentaire non trouvé' });
+    }
+
+    // Vérifier que c'est bien l'auteur ou un admin
+    const user = await User.findById(req.user.userId);
+    const isAdmin = user.status === 'admin' || user.email === 'nyundumathryme@gmail.com';
+    
+    if (comment.userId.toString() !== req.user.userId && !isAdmin) {
+      return res.status(403).json({ message: 'Accès refusé' });
+    }
+
+    // Supprimer les fichiers médias
+    if (comment.media && comment.media.length > 0) {
+      comment.media.forEach(m => {
+        const filePath = path.join(__dirname, m.url);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      });
+    }
+
+    comment.remove();
+    await pub.save();
+
+    // 🔥 Broadcast via WebSocket
+    if (typeof broadcastToAll === 'function') {
+      broadcastToAll({
+        type: 'delete_comment',
+        publicationId: req.params.pubId,
+        commentId: req.params.commentId
+      });
+    }
+
+    res.json({ message: 'Commentaire supprimé' });
+  } catch (e) {
+    console.error('Erreur suppression commentaire:', e);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+// Liker/Unliker un commentaire
+app.post('/api/publications/:pubId/comments/:commentId/like', verifyToken, async (req, res) => {
+  try {
+    const pub = await Publication.findById(req.params.pubId);
+    if (!pub || !pub.isActive) {
+      return res.status(404).json({ message: 'Publication non trouvée' });
+    }
+
+    const comment = pub.comments.id(req.params.commentId);
+    if (!comment) {
+      return res.status(404).json({ message: 'Commentaire non trouvé' });
+    }
+
+    const userId = req.user.userId;
+    const likeIndex = comment.likes.indexOf(userId);
+
+    if (likeIndex > -1) {
+      // Unlike
+      comment.likes.splice(likeIndex, 1);
+    } else {
+      // Like
+      comment.likes.push(userId);
+    }
+
+    await pub.save();
+
+    // 🔥 Broadcast via WebSocket
+    if (typeof broadcastToAll === 'function') {
+      broadcastToAll({
+        type: 'like_comment',
+        publicationId: req.params.pubId,
+        commentId: req.params.commentId,
+        likes: comment.likes
+      });
+    }
+
+    res.json({ 
+      message: likeIndex > -1 ? 'Like retiré' : 'Commentaire liké',
+      likes: comment.likes
+    });
+  } catch (e) {
+    console.error('Erreur like commentaire:', e);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
 app.post('/api/publications/:id/comments', verifyToken, async (req, res) => {
   const { content } = req.body;
   if (!content?.trim()) return res.status(400).json({ message: 'Commentaire requis' });
@@ -1045,16 +1599,53 @@ app.delete('/api/markers/:id/media/:type/:index', verifyToken, async (req, res) 
 // ROUTES : GESTION DES EMPLOYÉS (ADMIN) - COMPLÈTES
 // ========================================
 
-// Lister les employés (GET)
+// Lister les employés (GET) - avec support des filtres
 app.get('/api/employees', verifyToken, verifyCanCreateEmployees, async (req, res) => {
   try {
-    const employees = await Employee.find().sort({ createdAt: -1 });
+    const { search, department, status, sortBy, order } = req.query;
+    
+    // Construire la requête de filtrage
+    let query = {};
+    
+    // Filtre de recherche (nom, email, téléphone)
+    if (search && search.trim() !== '') {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { phone: { $regex: search, $options: 'i' } },
+        { role: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    // Filtre par département
+    if (department && department !== 'Tous') {
+      query.department = department;
+    }
+    
+    // Filtre par statut
+    if (status && status !== 'tous') {
+      query.status = status;
+    }
+    
+    // Définir le tri
+    let sortOptions = { createdAt: -1 }; // Par défaut : plus récent
+    if (sortBy) {
+      const sortOrder = order === 'asc' ? 1 : -1;
+      sortOptions = { [sortBy]: sortOrder };
+    }
+    
+    const employees = await Employee.find(query).sort(sortOptions);
     const employeesWithUrls = employees.map(emp => ({
       ...emp.toObject(),
       faceImage: emp.faceImage ? `${BASE_URL}/${emp.faceImage}` : '',
       certificate: emp.certificate ? `${BASE_URL}/${emp.certificate}` : ''
     }));
-    res.json({ employees: employeesWithUrls });
+    
+    res.json({ 
+      employees: employeesWithUrls,
+      total: employees.length,
+      filters: { search, department, status, sortBy, order }
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Erreur serveur lors du listage des employés' });
@@ -1066,7 +1657,7 @@ app.post('/api/employees', verifyToken, verifyCanCreateEmployees, employeeUpload
   { name: 'faceImage', maxCount: 1 },
   { name: 'certificate', maxCount: 1 }
 ]), async (req, res) => {
-  const { name, email, phone, startDate, endDate, certificateStartDate, certificateEndDate } = req.body;
+  const { name, email, phone, role, department, startDate, endDate, certificateStartDate, certificateEndDate } = req.body;
   if (!name || !email || !phone) return res.status(400).json({ message: 'Champs requis' });
 
   try {
@@ -1076,6 +1667,8 @@ app.post('/api/employees', verifyToken, verifyCanCreateEmployees, employeeUpload
       name: name.trim(),
       email: email.trim(),
       phone: phone.trim(),
+      role: role?.trim() || '',
+      department: department?.trim() || 'IT',
       faceImage: req.files.faceImage?.[0]?.path.replace(/\\/g, '/') || '',
       certificate: req.files.certificate?.[0]?.path.replace(/\\/g, '/') || '',
       startDate: startDate ? new Date(startDate) : undefined,
@@ -1092,18 +1685,51 @@ app.post('/api/employees', verifyToken, verifyCanCreateEmployees, employeeUpload
     };
     res.json({ message: 'Employé créé', employee: employeeWithUrls });
 
-    // Notification admin (asynchrone)
+    // Créer une notification pour tous les admins (asynchrone)
     (async () => {
-      const admins = await User.find({ $or: [{ status: 'admin' }, { email: { $in: ['nyundumathryme@gmail', 'nyundumathryme@gmail.com'] } }] });
-      const emails = [...new Set(admins.map(a => a.email))].filter(Boolean);
-      if (!emails.length) return;
+      try {
+        const admins = await User.find({ 
+          $or: [
+            { status: 'admin' }, 
+            { email: { $in: ['nyundumathryme@gmail', 'nyundumathryme@gmail.com'] } }
+          ] 
+        });
 
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: emails.join(','),
-        subject: `Nouvel employé: ${employee.name}`,
-        html: `<h2>Nouvel employé</h2><p>${employee.name} (${employee.email})</p>`
-      });
+        // Créer une notification pour chaque admin
+        for (const admin of admins) {
+          await Notification.create({
+            userId: admin._id,
+            type: 'employee_created',
+            title: 'Nouvel employé',
+            message: `${employee.name} a été ajouté comme employé`,
+            data: {
+              employeeId: employee._id,
+              employeeName: employee.name,
+              employeeEmail: employee.email,
+              department: employee.department
+            }
+          });
+          
+          // Diffuser via WebSocket à cet admin
+          broadcastToUser(admin._id.toString(), {
+            type: 'new_employee',
+            employee: employeeWithUrls
+          });
+        }
+
+        // Envoyer email (optionnel)
+        const emails = [...new Set(admins.map(a => a.email))].filter(Boolean);
+        if (emails.length) {
+          await transporter.sendMail({
+            from: process.env.EMAIL_USER,
+            to: emails.join(','),
+            subject: `Nouvel employé: ${employee.name}`,
+            html: `<h2>Nouvel employé</h2><p>${employee.name} (${employee.email})</p><p>Département: ${employee.department}</p>`
+          });
+        }
+      } catch (err) {
+        console.error('Erreur notification:', err);
+      }
     })();
   } catch (err) {
     console.error(err);
@@ -1116,7 +1742,7 @@ app.put('/api/employees/:id', verifyToken, verifyCanCreateEmployees, employeeUpl
   { name: 'faceImage', maxCount: 1 },
   { name: 'certificate', maxCount: 1 }
 ]), async (req, res) => {
-  const { name, email, phone, startDate, endDate, certificateStartDate, certificateEndDate } = req.body;
+  const { name, email, phone, role, department, startDate, endDate, certificateStartDate, certificateEndDate } = req.body;
   const id = req.params.id;
 
   try {
@@ -1126,6 +1752,8 @@ app.put('/api/employees/:id', verifyToken, verifyCanCreateEmployees, employeeUpl
     if (name) employee.name = name.trim();
     if (email) employee.email = email.trim();
     if (phone) employee.phone = phone.trim();
+    if (role) employee.role = role.trim();
+    if (department) employee.department = department.trim();
     if (startDate) employee.startDate = new Date(startDate);
     if (endDate) employee.endDate = new Date(endDate);
     if (certificateStartDate) employee.certificateStartDate = new Date(certificateStartDate);
@@ -1156,6 +1784,33 @@ app.put('/api/employees/:id', verifyToken, verifyCanCreateEmployees, employeeUpl
       certificate: employee.certificate ? `${BASE_URL}/${employee.certificate}` : ''
     };
     res.json({ message: 'Employé mis à jour', employee: employeeWithUrls });
+
+    // Créer une notification pour tous les admins (asynchrone)
+    (async () => {
+      try {
+        const admins = await User.find({ 
+          $or: [
+            { status: 'admin' }, 
+            { email: { $in: ['nyundumathryme@gmail', 'nyundumathryme@gmail.com'] } }
+          ] 
+        });
+
+        for (const admin of admins) {
+          await Notification.create({
+            userId: admin._id,
+            type: 'employee_updated',
+            title: 'Employé mis à jour',
+            message: `Les informations de ${employee.name} ont été modifiées`,
+            data: {
+              employeeId: employee._id,
+              employeeName: employee.name
+            }
+          });
+        }
+      } catch (err) {
+        console.error('Erreur notification:', err);
+      }
+    })();
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Erreur serveur lors de la mise à jour' });
@@ -1180,8 +1835,35 @@ app.delete('/api/employees/:id', verifyToken, verifyCanCreateEmployees, async (r
       if (fs.existsSync(certPath)) fs.unlinkSync(certPath);
     }
 
+    const employeeName = employee.name;
     await Employee.findByIdAndDelete(id);
     res.json({ message: 'Employé supprimé' });
+
+    // Créer une notification pour tous les admins (asynchrone)
+    (async () => {
+      try {
+        const admins = await User.find({ 
+          $or: [
+            { status: 'admin' }, 
+            { email: { $in: ['nyundumathryme@gmail', 'nyundumathryme@gmail.com'] } }
+          ] 
+        });
+
+        for (const admin of admins) {
+          await Notification.create({
+            userId: admin._id,
+            type: 'employee_deleted',
+            title: 'Employé supprimé',
+            message: `${employeeName} a été retiré de la liste des employés`,
+            data: {
+              employeeName
+            }
+          });
+        }
+      } catch (err) {
+        console.error('Erreur notification:', err);
+      }
+    })();
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Erreur serveur lors de la suppression' });
@@ -1189,8 +1871,190 @@ app.delete('/api/employees/:id', verifyToken, verifyCanCreateEmployees, async (r
 });
 
 // ========================================
+// ROUTES : NOTIFICATIONS
+// ========================================
+
+// Récupérer les notifications de l'utilisateur
+app.get('/api/notifications', verifyToken, async (req, res) => {
+  try {
+    const notifications = await Notification.find({ userId: req.user.userId })
+      .sort({ createdAt: -1 })
+      .limit(50);
+    
+    const unreadCount = await Notification.countDocuments({ 
+      userId: req.user.userId, 
+      read: false 
+    });
+
+    res.json({ 
+      notifications,
+      unreadCount
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+// Marquer une notification comme lue
+app.put('/api/notifications/:id/read', verifyToken, async (req, res) => {
+  try {
+    const notification = await Notification.findOne({
+      _id: req.params.id,
+      userId: req.user.userId
+    });
+
+    if (!notification) return res.status(404).json({ message: 'Notification non trouvée' });
+
+    notification.read = true;
+    await notification.save();
+
+    res.json({ message: 'Notification marquée comme lue', notification });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+// Marquer toutes les notifications comme lues
+app.put('/api/notifications/read-all', verifyToken, async (req, res) => {
+  try {
+    await Notification.updateMany(
+      { userId: req.user.userId, read: false },
+      { $set: { read: true } }
+    );
+
+    res.json({ message: 'Toutes les notifications marquées comme lues' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+// Supprimer une notification
+app.delete('/api/notifications/:id', verifyToken, async (req, res) => {
+  try {
+    const notification = await Notification.findOneAndDelete({
+      _id: req.params.id,
+      userId: req.user.userId
+    });
+
+    if (!notification) return res.status(404).json({ message: 'Notification non trouvée' });
+
+    res.json({ message: 'Notification supprimée' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+// ========================================
 // ROUTES : GESTION DES UTILISATEURS (ADMIN)
 // ========================================
+
+// Statistiques admin globales
+app.get('/api/admin/stats', verifyToken, verifyCanManageUsers, async (req, res) => {
+  try {
+    const totalUsers = await User.countDocuments();
+    const activeUsers = await User.countDocuments({ status: 'active' });
+    const blockedUsers = await User.countDocuments({ status: 'blocked' });
+    const adminUsers = await User.countDocuments({ status: 'admin' });
+    
+    const totalEmployees = await Employee.countDocuments();
+    const activeEmployees = await Employee.countDocuments({ status: 'active' });
+    const onLeaveEmployees = await Employee.countDocuments({ status: 'on_leave' });
+    const terminatedEmployees = await Employee.countDocuments({ status: 'terminated' });
+    
+    const totalPublications = await Publication.countDocuments({ isActive: true });
+    const totalMarkers = await Marker.countDocuments();
+
+    res.json({
+      users: {
+        total: totalUsers,
+        active: activeUsers,
+        blocked: blockedUsers,
+        admin: adminUsers
+      },
+      employees: {
+        total: totalEmployees,
+        active: activeEmployees,
+        onLeave: onLeaveEmployees,
+        terminated: terminatedEmployees
+      },
+      publications: {
+        total: totalPublications
+      },
+      markers: {
+        total: totalMarkers
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur lors de la récupération des statistiques' });
+  }
+});
+
+// Route des statistiques accessibles à tous les utilisateurs authentifiés
+// Retourne les données selon les permissions (employés vs admins)
+app.get('/api/stats', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'Utilisateur non trouvé' });
+    }
+
+    // Vérifier si l'utilisateur est admin
+    const isAdmin = user.status === 'admin' || 
+                    ['nyundumathryme@gmail', 'nyundumathryme@gmail.com'].includes(user.email.toLowerCase());
+
+    // Statistiques de publications (accessibles à tous)
+    const totalPublications = await Publication.countDocuments({ isActive: true });
+
+    const stats = {
+      publications: {
+        total: totalPublications
+      }
+    };
+
+    // Ajouter les statistiques d'employés et utilisateurs UNIQUEMENT pour les admins
+    if (isAdmin) {
+      const totalUsers = await User.countDocuments();
+      const activeUsers = await User.countDocuments({ status: 'active' });
+      const blockedUsers = await User.countDocuments({ status: 'blocked' });
+      const adminUsers = await User.countDocuments({ status: 'admin' });
+      
+      const totalEmployees = await Employee.countDocuments();
+      const activeEmployees = await Employee.countDocuments({ status: 'active' });
+      const onLeaveEmployees = await Employee.countDocuments({ status: 'on_leave' });
+      const terminatedEmployees = await Employee.countDocuments({ status: 'terminated' });
+      
+      const totalMarkers = await Marker.countDocuments();
+
+      stats.users = {
+        total: totalUsers,
+        active: activeUsers,
+        blocked: blockedUsers,
+        admin: adminUsers
+      };
+
+      stats.employees = {
+        total: totalEmployees,
+        active: activeEmployees,
+        onLeave: onLeaveEmployees,
+        terminated: terminatedEmployees
+      };
+
+      stats.markers = {
+        total: totalMarkers
+      };
+    }
+
+    res.json(stats);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Erreur serveur lors de la récupération des statistiques' });
+  }
+});
 
 app.get('/api/users', verifyToken, verifyCanManageUsers, async (req, res) => {
   const users = await User.find().select('-password -otp -otpExpires');
@@ -1259,7 +2123,7 @@ app.get('/api/server-info', (req, res) => {
 const PORT = process.env.PORT || 5000;
 const HOST = '0.0.0.0';
 
-app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, () => {
   console.log('\n========================================');
   console.log('🚀 SERVEUR DÉMARRÉ');
   console.log('========================================');
@@ -1278,4 +2142,627 @@ app.listen(PORT, HOST, () => {
   console.log('💾 CONFIGURATION DATABASE:');
   console.log('   MONGO_URI:', process.env.MONGO_URI ? '✅ Défini' : '❌ NON DÉFINI');
   console.log('========================================\n');
+});
+
+// ========================================
+// CONFIGURATION WEBSOCKET
+// ========================================
+
+const wss = new WebSocketServer({ server });
+const clients = new Map(); // Map<userId, WebSocket>
+
+wss.on('connection', (ws) => {
+  console.log('🔌 Nouvelle connexion WebSocket');
+  let userId = null;
+
+  ws.on('message', (message) => {
+    try {
+      const data = JSON.parse(message);
+      
+      // Authentification
+      if (data.type === 'auth' && data.token) {
+        try {
+          const decoded = jwt.verify(data.token, process.env.JWT_SECRET);
+          userId = decoded.id;
+          clients.set(userId, ws);
+          console.log(`✅ Client authentifié: ${userId}`);
+          
+          ws.send(JSON.stringify({
+            type: 'auth_success',
+            message: 'Authentifié avec succès'
+          }));
+        } catch (err) {
+          console.log('❌ Token invalide');
+          ws.send(JSON.stringify({
+            type: 'auth_error',
+            message: 'Token invalide'
+          }));
+        }
+      }
+      
+      // Abonnement à un canal
+      else if (data.type === 'subscribe') {
+        console.log(`📢 Abonnement au canal: ${data.channel}`);
+      }
+      
+      // Désabonnement
+      else if (data.type === 'unsubscribe') {
+        console.log(`📢 Désabonnement du canal: ${data.channel}`);
+      }
+    } catch (err) {
+      console.error('❌ Erreur parsing message WebSocket:', err);
+    }
+  });
+
+  ws.on('close', () => {
+    if (userId) {
+      clients.delete(userId);
+      console.log(`🔌 Client déconnecté: ${userId}`);
+    }
+  });
+
+  ws.on('error', (error) => {
+    console.error('❌ Erreur WebSocket:', error);
+  });
+});
+
+// Fonction pour diffuser des notifications
+function broadcastToUser(userId, data) {
+  const client = clients.get(userId);
+  if (client && client.readyState === 1) { // 1 = OPEN
+    client.send(JSON.stringify(data));
+    console.log(`📤 Message envoyé à ${userId}`);
+    return true;
+  }
+  return false;
+}
+
+// Fonction pour diffuser à tous les utilisateurs
+function broadcastToAll(data) {
+  let sent = 0;
+  clients.forEach((client, userId) => {
+    if (client.readyState === 1) {
+      client.send(JSON.stringify(data));
+      sent++;
+    }
+  });
+  console.log(`📤 Message diffusé à ${sent} clients`);
+  return sent;
+}
+
+// Exporter les fonctions de broadcast
+global.broadcastToUser = broadcastToUser;
+global.broadcastToAll = broadcastToAll;
+
+// ========================================
+// ROUTES DE COMMUNICATION (EMAIL & WHATSAPP)
+// ========================================
+
+// Envoyer un email à un employé
+app.post('/api/employees/:id/send-email', verifyToken, async (req, res) => {
+  try {
+    const { subject, message } = req.body;
+    const employee = await Employee.findById(req.params.id);
+    
+    if (!employee) {
+      return res.status(404).json({ message: 'Employé non trouvé' });
+    }
+
+    if (!employee.email) {
+      return res.status(400).json({ message: 'L\'employé n\'a pas d\'email' });
+    }
+
+    if (!subject || !message) {
+      return res.status(400).json({ message: 'Sujet et message requis' });
+    }
+
+    // Configuration du transporteur email
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER || 'your-email@gmail.com',
+        pass: process.env.EMAIL_PASS || 'your-app-password'
+      }
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER || 'your-email@gmail.com',
+      to: employee.email,
+      subject: subject,
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f4f4f4;">
+          <div style="max-width: 600px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 10px;">
+            <h2 style="color: #00FF88; border-bottom: 2px solid #00FF88; padding-bottom: 10px;">
+              Message de CENTER App
+            </h2>
+            <div style="margin-top: 20px; line-height: 1.6; color: #333;">
+              ${message.replace(/\n/g, '<br>')}
+            </div>
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 12px;">
+              <p>Ce message a été envoyé depuis l'application CENTER.</p>
+            </div>
+          </div>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    
+    res.json({ 
+      message: 'Email envoyé avec succès',
+      to: employee.email 
+    });
+  } catch (err) {
+    console.error('Erreur envoi email:', err);
+    res.status(500).json({ 
+      message: 'Erreur lors de l\'envoi de l\'email',
+      error: err.message 
+    });
+  }
+});
+
+// Générer un lien WhatsApp pour contacter un employé
+app.get('/api/employees/:id/whatsapp-link', verifyToken, async (req, res) => {
+  try {
+    const { message } = req.query;
+    const employee = await Employee.findById(req.params.id);
+    
+    if (!employee) {
+      return res.status(404).json({ message: 'Employé non trouvé' });
+    }
+
+    if (!employee.phone) {
+      return res.status(400).json({ message: 'L\'employé n\'a pas de numéro de téléphone' });
+    }
+
+    // Nettoyer le numéro de téléphone (enlever espaces, tirets, etc.)
+    let cleanPhone = employee.phone.replace(/[\s\-\(\)]/g, '');
+    
+    // Si le numéro commence par 0, remplacer par l'indicatif pays (exemple: +237 pour Cameroun)
+    if (cleanPhone.startsWith('0')) {
+      cleanPhone = '237' + cleanPhone.substring(1);
+    }
+    
+    // Si pas d'indicatif, ajouter +237 par défaut
+    if (!cleanPhone.startsWith('+') && !cleanPhone.startsWith('237')) {
+      cleanPhone = '237' + cleanPhone;
+    }
+
+    // Construire le lien WhatsApp
+    const defaultMessage = message || `Bonjour ${employee.name}, je vous contacte depuis l'application CENTER.`;
+    const encodedMessage = encodeURIComponent(defaultMessage);
+    const whatsappLink = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
+    
+    res.json({ 
+      whatsappLink,
+      phone: employee.phone,
+      cleanPhone,
+      message: defaultMessage
+    });
+  } catch (err) {
+    console.error('Erreur génération lien WhatsApp:', err);
+    res.status(500).json({ 
+      message: 'Erreur lors de la génération du lien WhatsApp',
+      error: err.message 
+    });
+  }
+});
+
+// Initier un appel téléphonique (retourne le numéro)
+app.get('/api/employees/:id/call', verifyToken, async (req, res) => {
+  try {
+    const employee = await Employee.findById(req.params.id);
+    
+    if (!employee) {
+      return res.status(404).json({ message: 'Employé non trouvé' });
+    }
+
+    if (!employee.phone) {
+      return res.status(400).json({ message: 'L\'employé n\'a pas de numéro de téléphone' });
+    }
+
+    res.json({ 
+      phone: employee.phone,
+      name: employee.name,
+      callUri: `tel:${employee.phone}` 
+    });
+  } catch (err) {
+    console.error('Erreur récupération téléphone:', err);
+    res.status(500).json({ 
+      message: 'Erreur lors de la récupération du numéro',
+      error: err.message 
+    });
+  }
+});
+
+// ============= ROUTES STATISTIQUES =============
+
+// Récupérer statistiques globales
+app.get('/api/statistics/overview', verifyToken, async (req, res) => {
+  try {
+    const employees = await Employee.find();
+    
+    const totalEmployees = employees.length;
+    const onlineEmployees = employees.filter(e => e.status === 'online').length;
+    const offlineEmployees = employees.filter(e => e.status === 'offline').length;
+    const awayEmployees = employees.filter(e => e.status === 'away').length;
+    
+    // Statistiques par département
+    const departmentStats = {};
+    employees.forEach(emp => {
+      const dept = emp.department || 'Non défini';
+      if (!departmentStats[dept]) {
+        departmentStats[dept] = {
+          total: 0,
+          online: 0,
+          offline: 0,
+          away: 0
+        };
+      }
+      departmentStats[dept].total++;
+      if (emp.status === 'online') departmentStats[dept].online++;
+      if (emp.status === 'offline') departmentStats[dept].offline++;
+      if (emp.status === 'away') departmentStats[dept].away++;
+    });
+    
+    // Statistiques par rôle
+    const roleStats = {};
+    employees.forEach(emp => {
+      const role = emp.role || 'Non défini';
+      roleStats[role] = (roleStats[role] || 0) + 1;
+    });
+    
+    // Employés avec géolocalisation
+    const employeesWithLocation = employees.filter(e => 
+      e.location && e.location.latitude && e.location.longitude
+    ).length;
+    
+    // Statistiques de présence (dernières 24h)
+    const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recentlyActive = employees.filter(e => 
+      e.lastSeen && new Date(e.lastSeen) > last24h
+    ).length;
+
+    res.json({
+      success: true,
+      statistics: {
+        total: totalEmployees,
+        online: onlineEmployees,
+        offline: offlineEmployees,
+        away: awayEmployees,
+        departments: Object.keys(departmentStats).length,
+        departmentStats,
+        roleStats,
+        withLocation: employeesWithLocation,
+        recentlyActive,
+        activeRate: totalEmployees > 0 ? ((onlineEmployees / totalEmployees) * 100).toFixed(1) : 0,
+        locationRate: totalEmployees > 0 ? ((employeesWithLocation / totalEmployees) * 100).toFixed(1) : 0
+      }
+    });
+  } catch (err) {
+    console.error('Erreur récupération statistiques:', err);
+    res.status(500).json({ 
+      message: 'Erreur lors de la récupération des statistiques',
+      error: err.message 
+    });
+  }
+});
+
+// Récupérer géolocalisation de tous les employés
+app.get('/api/statistics/geolocation', verifyToken, async (req, res) => {
+  try {
+    const employees = await Employee.find({
+      'location.latitude': { $exists: true },
+      'location.longitude': { $exists: true }
+    }).select('firstName lastName department role status location faceImage avatar');
+    
+    const locationsData = employees.map(emp => ({
+      id: emp._id,
+      name: `${emp.firstName} ${emp.lastName}`,
+      department: emp.department,
+      role: emp.role,
+      status: emp.status,
+      image: emp.faceImage || emp.avatar,
+      location: {
+        latitude: emp.location.latitude,
+        longitude: emp.location.longitude,
+        address: emp.location.address || 'Adresse non disponible',
+        lastUpdate: emp.location.lastUpdate || emp.lastSeen
+      }
+    }));
+
+    res.json({
+      success: true,
+      total: locationsData.length,
+      locations: locationsData
+    });
+  } catch (err) {
+    console.error('Erreur récupération géolocalisation:', err);
+    res.status(500).json({ 
+      message: 'Erreur lors de la récupération des données de géolocalisation',
+      error: err.message 
+    });
+  }
+});
+
+// Récupérer détails des employés en ligne
+app.get('/api/statistics/online-employees', verifyToken, async (req, res) => {
+  try {
+    const employees = await Employee.find({ status: 'online' })
+      .select('firstName lastName department role email phone faceImage avatar lastSeen location')
+      .sort({ lastSeen: -1 });
+    
+    res.json({
+      success: true,
+      total: employees.length,
+      employees: employees.map(emp => ({
+        id: emp._id,
+        name: `${emp.firstName} ${emp.lastName}`,
+        department: emp.department,
+        role: emp.role,
+        email: emp.email,
+        phone: emp.phone,
+        image: emp.faceImage || emp.avatar,
+        lastSeen: emp.lastSeen,
+        hasLocation: !!(emp.location?.latitude && emp.location?.longitude)
+      }))
+    });
+  } catch (err) {
+    console.error('Erreur récupération employés en ligne:', err);
+    res.status(500).json({ 
+      message: 'Erreur lors de la récupération des employés en ligne',
+      error: err.message 
+    });
+  }
+});
+
+// Récupérer statistiques détaillées par département
+app.get('/api/statistics/departments-details', verifyToken, async (req, res) => {
+  try {
+    const employees = await Employee.find()
+      .select('firstName lastName department role status faceImage avatar');
+    
+    const departmentDetails = {};
+    
+    employees.forEach(emp => {
+      const dept = emp.department || 'Non défini';
+      if (!departmentDetails[dept]) {
+        departmentDetails[dept] = {
+          name: dept,
+          total: 0,
+          online: 0,
+          offline: 0,
+          away: 0,
+          employees: [],
+          roles: {}
+        };
+      }
+      
+      departmentDetails[dept].total++;
+      if (emp.status === 'online') departmentDetails[dept].online++;
+      if (emp.status === 'offline') departmentDetails[dept].offline++;
+      if (emp.status === 'away') departmentDetails[dept].away++;
+      
+      departmentDetails[dept].employees.push({
+        id: emp._id,
+        name: `${emp.firstName} ${emp.lastName}`,
+        role: emp.role,
+        status: emp.status,
+        image: emp.faceImage || emp.avatar
+      });
+      
+      const role = emp.role || 'Non défini';
+      departmentDetails[dept].roles[role] = (departmentDetails[dept].roles[role] || 0) + 1;
+    });
+    
+    const departmentsArray = Object.values(departmentDetails).sort((a, b) => b.total - a.total);
+
+    res.json({
+      success: true,
+      total: departmentsArray.length,
+      departments: departmentsArray
+    });
+  } catch (err) {
+    console.error('Erreur récupération détails départements:', err);
+    res.status(500).json({ 
+      message: 'Erreur lors de la récupération des détails des départements',
+      error: err.message 
+    });
+  }
+});
+
+// ============= ROUTES STORIES =============
+
+// Récupérer toutes les stories (dernières 24h)
+app.get('/api/stories', verifyToken, async (req, res) => {
+  try {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    
+    const stories = await Story.find({
+      createdAt: { $gte: twentyFourHoursAgo }
+    })
+      .populate('userId', 'firstName lastName faceImage avatar')
+      .sort({ createdAt: -1 });
+
+    // Marquer les stories comme vues par l'utilisateur actuel
+    const viewedStories = stories.map(story => {
+      const isViewed = story.viewedBy?.some(v => v.toString() === req.user.userId);
+      return {
+        _id: story._id,
+        content: story.content,
+        mediaUrl: story.mediaUrl,
+        mediaType: story.mediaType,
+        backgroundColor: story.backgroundColor,
+        user: {
+          _id: story.userId._id,
+          firstName: story.userId.firstName,
+          lastName: story.userId.lastName,
+          faceImage: story.userId.faceImage,
+          avatar: story.userId.avatar
+        },
+        createdAt: story.createdAt,
+        expiresAt: story.expiresAt,
+        viewCount: story.viewedBy?.length || 0,
+        isViewed: isViewed
+      };
+    });
+
+    res.json({
+      success: true,
+      stories: viewedStories,
+      total: viewedStories.length
+    });
+  } catch (err) {
+    console.error('Erreur récupération stories:', err);
+    res.status(500).json({ 
+      message: 'Erreur lors de la récupération des stories',
+      error: err.message 
+    });
+  }
+});
+
+// Créer une nouvelle story
+app.post('/api/stories', verifyToken, storyUpload.single('media'), async (req, res) => {
+  try {
+    console.log('\n=== CRÉATION STORY ===');
+    console.log('Body:', req.body);
+    console.log('File:', req.file);
+    
+    const { content, backgroundColor, duration, mediaType: bodyMediaType } = req.body;
+    
+    let mediaUrl = null;
+    let mediaType = 'text';
+
+    if (req.file) {
+      mediaUrl = `${BASE_URL}/uploads/stories/${req.file.filename}`;
+      mediaType = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
+      console.log('✅ Fichier uploadé:', mediaUrl);
+    } else if (bodyMediaType) {
+      mediaType = bodyMediaType;
+    }
+
+    const newStory = new Story({
+      userId: req.user.userId,
+      content: content || '',
+      mediaUrl,
+      mediaType,
+      backgroundColor: backgroundColor || '#00D4FF',
+      duration: parseInt(duration) || 5,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24h
+    });
+
+    await newStory.save();
+    console.log('✅ Story sauvegardée:', newStory._id);
+
+    const populatedStory = await Story.findById(newStory._id)
+      .populate('userId', 'name email profileImage');
+
+    // Notifier via WebSocket
+    const storyData = {
+      type: 'new_story',
+      story: {
+        _id: populatedStory._id,
+        content: populatedStory.content,
+        mediaUrl: populatedStory.mediaUrl,
+        mediaType: populatedStory.mediaType,
+        backgroundColor: populatedStory.backgroundColor,
+        duration: populatedStory.duration,
+        userId: {
+          _id: populatedStory.userId._id,
+          name: populatedStory.userId.name,
+          email: populatedStory.userId.email,
+          profileImage: populatedStory.userId.profileImage
+        },
+        createdAt: populatedStory.createdAt,
+        expiresAt: populatedStory.expiresAt
+      }
+    };
+    
+    broadcast(storyData);
+
+    res.status(201).json({
+      success: true,
+      message: 'Story créée avec succès',
+      story: storyData.story
+    });
+  } catch (err) {
+    console.error('Erreur création story:', err);
+    res.status(500).json({ 
+      message: 'Erreur lors de la création de la story',
+      error: err.message 
+    });
+  }
+});
+
+// Marquer une story comme vue
+app.post('/api/stories/:id/view', verifyToken, async (req, res) => {
+  try {
+    const story = await Story.findById(req.params.id);
+    
+    if (!story) {
+      return res.status(404).json({ message: 'Story non trouvée' });
+    }
+
+    // Vérifier si déjà vu
+    if (!story.viewedBy.includes(req.user.userId)) {
+      story.viewedBy.push(req.user.userId);
+      await story.save();
+    }
+
+    res.json({
+      success: true,
+      message: 'Story marquée comme vue',
+      viewCount: story.viewedBy.length
+    });
+  } catch (err) {
+    console.error('Erreur marquage vue story:', err);
+    res.status(500).json({ 
+      message: 'Erreur lors du marquage de la story',
+      error: err.message 
+    });
+  }
+});
+
+// Supprimer une story
+app.delete('/api/stories/:id', verifyToken, async (req, res) => {
+  try {
+    const story = await Story.findById(req.params.id);
+    
+    if (!story) {
+      return res.status(404).json({ message: 'Story non trouvée' });
+    }
+
+    // Vérifier que c'est bien l'auteur
+    if (story.userId.toString() !== req.user.userId) {
+      return res.status(403).json({ message: 'Non autorisé à supprimer cette story' });
+    }
+
+    // Supprimer le fichier média si existe
+    if (story.mediaUrl) {
+      const filename = story.mediaUrl.split('/').pop();
+      const filepath = path.join(__dirname, 'uploads', filename);
+      if (fs.existsSync(filepath)) {
+        fs.unlinkSync(filepath);
+      }
+    }
+
+    await Story.deleteOne({ _id: req.params.id });
+
+    // Notifier via WebSocket
+    broadcast({
+      type: 'delete_story',
+      storyId: req.params.id
+    });
+
+    res.json({
+      success: true,
+      message: 'Story supprimée avec succès'
+    });
+  } catch (err) {
+    console.error('Erreur suppression story:', err);
+    res.status(500).json({ 
+      message: 'Erreur lors de la suppression de la story',
+      error: err.message 
+    });
+  }
 });

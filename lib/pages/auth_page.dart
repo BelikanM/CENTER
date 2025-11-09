@@ -341,6 +341,27 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
     });
 
     try {
+      // TEMPORAIRE : Utiliser admin-login pour les tests
+      // Pour production, décommenter le code OTP ci-dessous
+      final result = await ApiService.adminLogin(
+        _emailController.text,
+        _passwordController.text,
+      );
+      
+      if (result.containsKey('accessToken') && result['accessToken'] != null) {
+        if (mounted) {
+          final appProvider = Provider.of<AppProvider>(context, listen: false);
+          appProvider.setAuthenticated(
+            true,
+            token: result['accessToken'],
+            user: result['user'],
+          );
+        }
+      } else {
+        setState(() => _message = result['message'] ?? 'Erreur de connexion');
+      }
+      
+      /* CODE OTP ORIGINAL (pour production):
       final result = await ApiService.login(_emailController.text);
       
       if (result.containsKey('message') && 
@@ -359,6 +380,7 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
           );
         }
       }
+      */
     } catch (e) {
       setState(() => _message = 'Erreur: $e');
     } finally {
@@ -437,16 +459,20 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
     try {
       final result = await ApiService.verifyOtp(_emailController.text, _otpController.text);
       
-      if (mounted) {
-        final appProvider = Provider.of<AppProvider>(context, listen: false);
-        appProvider.setAuthenticated(
-          true,
-          token: result['accessToken'],
-          user: result['user'],
-        );
+      if (result.containsKey('accessToken') && result['accessToken'] != null) {
+        if (mounted) {
+          final appProvider = Provider.of<AppProvider>(context, listen: false);
+          appProvider.setAuthenticated(
+            true,
+            token: result['accessToken'],
+            user: result['user'],
+          );
+        }
+      } else {
+        setState(() => _message = result['message'] ?? 'Erreur de vérification');
       }
     } catch (e) {
-      setState(() => _message = 'Erreur: $e');
+      setState(() => _message = 'Code OTP invalide ou expiré');
     } finally {
       setState(() => _isLoading = false);
     }

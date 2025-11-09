@@ -26,16 +26,12 @@ import 'dart:developer' as developer;
 /// ```
 ///
 class ApiService {
-  // Configuration dynamique
-  static String? _dynamicBaseUrl;
-  static bool _isInitialized = false;
-
-  // URL de base par défaut (pour la première connexion)
-  static const String _defaultBaseUrl = 'http://192.168.1.66:5000'; // Adresse par défaut pour l'initialisation
+  // Configuration FIXE - Plus de détection dynamique
+  static const String _baseUrl = 'http://192.168.1.66:5000';
   static const String apiPrefix = '/api';
 
-  // Getter pour l'URL de base (dynamique ou par défaut)
-  static String get baseUrl => _dynamicBaseUrl ?? _defaultBaseUrl;
+  // Getter pour l'URL de base (toujours fixe maintenant)
+  static String get baseUrl => _baseUrl;
 
   // Headers par défaut
   static Map<String, String> get _defaultHeaders => {
@@ -49,111 +45,54 @@ class ApiService {
     'Authorization': 'Bearer $token',
   };
 
-  // ========================================
-  // INITIALISATION DYNAMIQUE
-  // ========================================
+  // Headers pour MultipartRequest (sans Content-Type car géré automatiquement)
+  static Map<String, String> _multipartAuthHeaders(String token) => {
+    'Authorization': 'Bearer $token',
+  };
 
-  // Initialiser l'API avec l'adresse IP détectée automatiquement
+  // Détecter le type MIME d'un fichier
+  static String _getMimeType(String path) {
+    final ext = path.toLowerCase().split('.').last;
+    
+    // Images
+    if (['jpg', 'jpeg'].contains(ext)) return 'image/jpeg';
+    if (ext == 'png') return 'image/png';
+    if (ext == 'gif') return 'image/gif';
+    if (ext == 'webp') return 'image/webp';
+    
+    // Vidéos
+    if (ext == 'mp4') return 'video/mp4';
+    if (ext == 'mov') return 'video/quicktime';
+    if (ext == 'avi') return 'video/x-msvideo';
+    if (ext == 'webm') return 'video/webm';
+    if (ext == 'mkv') return 'video/x-matroska';
+    
+    // Audio
+    if (['mp3', 'mpeg'].contains(ext)) return 'audio/mpeg';
+    if (ext == 'm4a') return 'audio/mp4';
+    if (ext == 'wav') return 'audio/wav';
+    if (ext == 'ogg') return 'audio/ogg';
+    if (ext == 'aac') return 'audio/aac';
+    
+    return 'application/octet-stream';
+  }
+
+  // Méthodes de compatibilité (ne font plus rien mais gardées pour éviter les erreurs)
   static Future<void> initialize() async {
-    if (_isInitialized) return;
-
-    try {
-      developer.log('🔄 Initialisation de l\'API - Détection automatique de l\'IP...', name: 'ApiService');
-
-      // Essayer d'abord avec l'adresse par défaut (IP actuelle du serveur)
-      final serverInfo = await _getServerInfo(_defaultBaseUrl);
-
-      if (serverInfo != null) {
-        // NE PAS utiliser baseUrl du serveur, il peut avoir un mauvais port
-        // Utiliser l'IP du serveur avec le port par défaut
-        final serverIp = serverInfo['serverIp'] ?? '192.168.1.66';
-        _dynamicBaseUrl = 'http://$serverIp:5000';
-        _isInitialized = true;
-        developer.log('✅ API initialisée avec l\'IP du serveur: $_dynamicBaseUrl', name: 'ApiService');
-        return;
-      }
-
-      developer.log('⚠️ Serveur non trouvé sur l\'IP par défaut, tentative de scan réseau...', name: 'ApiService');
-    } catch (e) {
-      developer.log('⚠️ Impossible de contacter le serveur sur l\'IP par défaut: $e', name: 'ApiService');
-    }
-
-    // Si l'adresse par défaut ne fonctionne pas, essayer de scanner le réseau local
-    try {
-      final detectedUrl = await _scanLocalNetwork();
-      if (detectedUrl != null) {
-        _dynamicBaseUrl = detectedUrl;
-        _isInitialized = true;
-        developer.log('✅ API initialisée avec l\'IP détectée: $_dynamicBaseUrl', name: 'ApiService');
-        return;
-      }
-    } catch (e) {
-      developer.log('⚠️ Échec du scan réseau: $e', name: 'ApiService');
-    }
-
-    // En dernier recours, garder l'adresse par défaut
-    developer.log('⚠️ Utilisation de l\'adresse par défaut en dernier recours: $_defaultBaseUrl', name: 'ApiService');
-    _dynamicBaseUrl = _defaultBaseUrl;
-    _isInitialized = true;
+    developer.log('✅ API Service - URL fixe: $_baseUrl', name: 'ApiService');
   }
 
-  // Scanner le réseau local pour trouver le serveur
-  static Future<String?> _scanLocalNetwork() async {
-    // Adresses IP communes à tester (réseau local typique)
-    final commonIPs = [
-      '192.168.1.66', // IP actuelle détectée par le serveur
-      '192.168.1.1', '192.168.1.100', '192.168.1.101', '192.168.1.102',
-      '192.168.1.103', '192.168.1.104', '192.168.1.105', '192.168.1.106',
-      '192.168.0.1', '192.168.0.100', '192.168.0.101', '192.168.0.102',
-      '10.0.0.1', '10.0.0.100', '10.0.0.101', '10.0.0.102',
-      '172.16.0.1', '172.16.0.100', '172.16.0.101', '172.16.0.102',
-    ];
-
-    for (final ip in commonIPs) {
-      try {
-        final testUrl = 'http://$ip:5000';
-        final serverInfo = await _getServerInfo(testUrl);
-        if (serverInfo != null) {
-          // Retourner l'URL avec le bon port, pas celle du serveur
-          return 'http://$ip:5000';
-        }
-      } catch (e) {
-        // Continuer avec l'IP suivante
-        continue;
-      }
-    }
-
-    return null;
-  }
-
-  // Récupérer les informations du serveur (méthode privée)
-  static Future<Map<String, dynamic>?> _getServerInfo(String baseUrl) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl$apiPrefix/server-info'),
-        headers: _defaultHeaders,
-      ).timeout(const Duration(seconds: 3));
-
-      if (response.statusCode == 200) {
-        return json.decode(response.body);
-      }
-    } catch (e) {
-      // Timeout ou erreur de connexion
-    }
-    return null;
-  }
-
-  // Forcer la réinitialisation (utile pour les tests ou changement de réseau)
   static void reset() {
-    _dynamicBaseUrl = null;
-    _isInitialized = false;
+    developer.log('🔄 API Service - reset appelé (pas d\'effet avec URL fixe)', name: 'ApiService');
   }
 
-  // Forcer l'utilisation de l'adresse par défaut (bypass détection automatique)
   static void useDefaultUrl() {
-    _dynamicBaseUrl = _defaultBaseUrl;
-    _isInitialized = true;
-    developer.log('✅ API forcée sur l\'adresse par défaut: $_defaultBaseUrl', name: 'ApiService');
+    developer.log('✅ API Service - URL fixe: $_baseUrl', name: 'ApiService');
+  }
+
+  // Méthode privée pour assurer l'initialisation (ne fait plus rien mais gardée pour compatibilité)
+  static Future<void> _ensureInitialized() async {
+    // Plus besoin d'initialisation avec URL fixe
   }
 
   // ========================================
@@ -194,6 +133,31 @@ class ApiService {
         Uri.parse('$baseUrl$apiPrefix/auth/login'),
         headers: _defaultHeaders,
         body: json.encode({'email': email}),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de connexion');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Connexion admin directe (pour tests, sans OTP)
+  static Future<Map<String, dynamic>> adminLogin(String email, String password) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl$apiPrefix/auth/admin-login'),
+        headers: _defaultHeaders,
+        body: json.encode({
+          'email': email,
+          'password': password,
+        }),
       );
 
       final data = json.decode(response.body);
@@ -258,6 +222,27 @@ class ApiService {
   // PROFIL UTILISATEUR
   // ========================================
 
+  // Récupérer le profil complet de l'utilisateur connecté
+  static Future<Map<String, dynamic>> getUserProfile(String token) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl$apiPrefix/user/profile'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de récupération du profil');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
   // Mettre à jour le nom
   static Future<Map<String, dynamic>> updateUserName(String token, String name) async {
     await _ensureInitialized();
@@ -312,13 +297,22 @@ class ApiService {
   // Upload photo de profil
   static Future<Map<String, dynamic>> uploadProfileImage(String token, File imageFile) async {
     await _ensureInitialized();
+    
+    developer.log('🔄 Upload image START', name: 'ApiService');
+    developer.log('URL: $baseUrl$apiPrefix/user/upload-profile-image', name: 'ApiService');
+    developer.log('File: ${imageFile.path}', name: 'ApiService');
+    
     try {
       var request = http.MultipartRequest(
         'POST',
         Uri.parse('$baseUrl$apiPrefix/user/upload-profile-image'),
       );
 
-      request.headers.addAll(_authHeaders(token));
+      // Pour MultipartRequest, on n'ajoute que Authorization (pas Content-Type)
+      request.headers['Authorization'] = 'Bearer $token';
+      
+      developer.log('Headers: ${request.headers}', name: 'ApiService');
+      
       request.files.add(
         await http.MultipartFile.fromPath(
           'profileImage',
@@ -328,16 +322,24 @@ class ApiService {
         ),
       );
 
+      developer.log('Sending request...', name: 'ApiService');
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
+      
+      developer.log('Response status: ${response.statusCode}', name: 'ApiService');
+      developer.log('Response body: ${response.body.substring(0, response.body.length > 200 ? 200 : response.body.length)}', name: 'ApiService');
+      
       final data = json.decode(response.body);
 
       if (response.statusCode == 200) {
+        developer.log('✅ Upload SUCCESS', name: 'ApiService');
         return data;
       } else {
+        developer.log('❌ Upload FAILED: ${data['message']}', name: 'ApiService');
         throw Exception(data['message'] ?? 'Erreur d\'upload');
       }
     } catch (e) {
+      developer.log('❌ Upload ERROR: $e', name: 'ApiService');
       throw Exception('Erreur de connexion: $e');
     }
   }
@@ -409,7 +411,7 @@ class ApiService {
         Uri.parse('$baseUrl$apiPrefix/publications'),
       );
 
-      request.headers.addAll(_authHeaders(token));
+      request.headers.addAll(_multipartAuthHeaders(token));
 
       // Champs texte
       request.fields['content'] = content;
@@ -539,7 +541,7 @@ class ApiService {
         Uri.parse('$baseUrl$apiPrefix/publications/$publicationId'),
       );
 
-      request.headers.addAll(_authHeaders(token));
+      request.headers.addAll(_multipartAuthHeaders(token));
 
       if (content != null) request.fields['content'] = content;
       if (latitude != null) request.fields['latitude'] = latitude.toString();
@@ -620,6 +622,11 @@ class ApiService {
   }
 
   // Récupérer les commentaires d'une publication
+  // ========================================
+  // COMMENTAIRES (Mini-Chat Temps Réel)
+  // ========================================
+
+  // Récupérer tous les commentaires d'une publication
   static Future<Map<String, dynamic>> getPublicationComments(String token, String publicationId) async {
     await _ensureInitialized();
     try {
@@ -640,14 +647,24 @@ class ApiService {
     }
   }
 
-  // Ajouter un commentaire
-  static Future<Map<String, dynamic>> addComment(String token, String publicationId, String content) async {
+  // Ajouter un commentaire (texte uniquement)
+  static Future<Map<String, dynamic>> addComment(
+    String token, 
+    String publicationId, 
+    String content, {
+    String? replyTo,
+  }) async {
     await _ensureInitialized();
     try {
+      final body = {
+        'content': content,
+        if (replyTo != null) 'replyTo': replyTo,
+      };
+
       final response = await http.post(
         Uri.parse('$baseUrl$apiPrefix/publications/$publicationId/comments'),
         headers: _authHeaders(token),
-        body: json.encode({'content': content}),
+        body: json.encode(body),
       );
 
       final data = json.decode(response.body);
@@ -656,6 +673,136 @@ class ApiService {
         return data;
       } else {
         throw Exception(data['message'] ?? 'Erreur d\'ajout de commentaire');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Ajouter un commentaire avec médias (images, vidéos, audio)
+  static Future<Map<String, dynamic>> addCommentWithMedia(
+    String token,
+    String publicationId, {
+    String? content,
+    List<File>? mediaFiles,
+    String? replyTo,
+  }) async {
+    await _ensureInitialized();
+    try {
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl$apiPrefix/publications/$publicationId/comments'),
+      );
+
+      request.headers.addAll(_multipartAuthHeaders(token));
+
+      if (content != null && content.isNotEmpty) {
+        request.fields['content'] = content;
+      }
+      
+      if (replyTo != null) {
+        request.fields['replyTo'] = replyTo;
+      }
+
+      // Ajouter les fichiers médias
+      if (mediaFiles != null && mediaFiles.isNotEmpty) {
+        for (var file in mediaFiles) {
+          final mimeType = _getMimeType(file.path);
+          request.files.add(
+            await http.MultipartFile.fromPath(
+              'media',
+              file.path,
+              contentType: MediaType.parse(mimeType),
+            ),
+          );
+        }
+      }
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 201) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur d\'ajout de commentaire');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Modifier un commentaire
+  static Future<Map<String, dynamic>> updateComment(
+    String token,
+    String publicationId,
+    String commentId,
+    String content,
+  ) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl$apiPrefix/publications/$publicationId/comments/$commentId'),
+        headers: _authHeaders(token),
+        body: json.encode({'content': content}),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de modification');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Supprimer un commentaire
+  static Future<Map<String, dynamic>> deleteComment(
+    String token,
+    String publicationId,
+    String commentId,
+  ) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl$apiPrefix/publications/$publicationId/comments/$commentId'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de suppression');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Liker/Unliker un commentaire
+  static Future<Map<String, dynamic>> likeComment(
+    String token,
+    String publicationId,
+    String commentId,
+  ) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl$apiPrefix/publications/$publicationId/comments/$commentId/like'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de like');
       }
     } catch (e) {
       throw Exception('Erreur de connexion: $e');
@@ -709,7 +856,7 @@ class ApiService {
         Uri.parse('$baseUrl$apiPrefix/markers'),
       );
 
-      request.headers.addAll(_authHeaders(token));
+      request.headers.addAll(_multipartAuthHeaders(token));
 
       request.fields['latitude'] = latitude.toString();
       request.fields['longitude'] = longitude.toString();
@@ -839,7 +986,7 @@ class ApiService {
         Uri.parse('$baseUrl$apiPrefix/markers/$markerId'),
       );
 
-      request.headers.addAll(_authHeaders(token));
+      request.headers.addAll(_multipartAuthHeaders(token));
 
       if (title != null) request.fields['title'] = title;
       if (comment != null) request.fields['comment'] = comment;
@@ -933,15 +1080,160 @@ class ApiService {
   }
 
   // ========================================
-  // GESTION DES EMPLOYÉS (ADMIN)
+  // STORIES (STATUTS)
   // ========================================
 
-  // Lister les employés
-  static Future<Map<String, dynamic>> getEmployees(String token) async {
+  // Récupérer toutes les stories actives (dernières 24h)
+  static Future<Map<String, dynamic>> getStories(String token) async {
     await _ensureInitialized();
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl$apiPrefix/employees'),
+        Uri.parse('$baseUrl$apiPrefix/stories'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de récupération');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Créer une story
+  static Future<Map<String, dynamic>> createStory(
+    String token, {
+    String? content,
+    File? mediaFile,
+    String? mediaType,
+    String? backgroundColor,
+    int duration = 5,
+  }) async {
+    await _ensureInitialized();
+    try {
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl$apiPrefix/stories'),
+      );
+
+      request.headers.addAll(_multipartAuthHeaders(token));
+
+      // Champs optionnels
+      if (content != null && content.isNotEmpty) {
+        request.fields['content'] = content;
+      }
+      if (backgroundColor != null) {
+        request.fields['backgroundColor'] = backgroundColor;
+      }
+      request.fields['duration'] = duration.toString();
+      if (mediaType != null) {
+        request.fields['mediaType'] = mediaType;
+      }
+
+      // Fichier média (image ou vidéo)
+      if (mediaFile != null) {
+        String mimeType = mediaType == 'video' ? 'video' : 'image';
+        String extension = path.extension(mediaFile.path).substring(1);
+        
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'media',
+            mediaFile.path,
+            filename: path.basename(mediaFile.path),
+            contentType: MediaType(mimeType, extension),
+          ),
+        );
+      }
+
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 201) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de création');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Marquer une story comme vue
+  static Future<Map<String, dynamic>> viewStory(String token, String storyId) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl$apiPrefix/stories/$storyId/view'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur d\'enregistrement de vue');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Supprimer une story
+  static Future<Map<String, dynamic>> deleteStory(String token, String storyId) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl$apiPrefix/stories/$storyId'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de suppression');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // ========================================
+  // GESTION DES EMPLOYÉS (ADMIN)
+  // ========================================
+
+  // Lister les employés avec filtres
+  static Future<Map<String, dynamic>> getEmployees(
+    String token, {
+    String? search,
+    String? department,
+    String? status,
+    String? sortBy,
+    String? order,
+  }) async {
+    await _ensureInitialized();
+    try {
+      // Construire les query parameters
+      final queryParams = <String, String>{};
+      if (search != null && search.isNotEmpty) queryParams['search'] = search;
+      if (department != null && department.isNotEmpty) queryParams['department'] = department;
+      if (status != null && status.isNotEmpty) queryParams['status'] = status;
+      if (sortBy != null && sortBy.isNotEmpty) queryParams['sortBy'] = sortBy;
+      if (order != null && order.isNotEmpty) queryParams['order'] = order;
+
+      final uri = Uri.parse('$baseUrl$apiPrefix/employees').replace(
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
+
+      final response = await http.get(
+        uri,
         headers: _authHeaders(token),
       );
 
@@ -963,6 +1255,8 @@ class ApiService {
     required String name,
     required String email,
     required String phone,
+    String? department,
+    String? role,
     File? faceImage,
     File? certificate,
     DateTime? startDate,
@@ -977,11 +1271,13 @@ class ApiService {
         Uri.parse('$baseUrl$apiPrefix/employees'),
       );
 
-      request.headers.addAll(_authHeaders(token));
+      request.headers.addAll(_multipartAuthHeaders(token));
 
       request.fields['name'] = name;
       request.fields['email'] = email;
       request.fields['phone'] = phone;
+      if (department != null) request.fields['department'] = department;
+      if (role != null) request.fields['role'] = role;
 
       if (startDate != null) request.fields['startDate'] = startDate.toIso8601String();
       if (endDate != null) request.fields['endDate'] = endDate.toIso8601String();
@@ -1031,6 +1327,8 @@ class ApiService {
     String? name,
     String? email,
     String? phone,
+    String? role,
+    String? department,
     File? faceImage,
     File? certificate,
     DateTime? startDate,
@@ -1045,11 +1343,13 @@ class ApiService {
         Uri.parse('$baseUrl$apiPrefix/employees/$employeeId'),
       );
 
-      request.headers.addAll(_authHeaders(token));
+      request.headers.addAll(_multipartAuthHeaders(token));
 
       if (name != null) request.fields['name'] = name;
       if (email != null) request.fields['email'] = email;
       if (phone != null) request.fields['phone'] = phone;
+      if (role != null) request.fields['role'] = role;
+      if (department != null) request.fields['department'] = department;
       if (startDate != null) request.fields['startDate'] = startDate.toIso8601String();
       if (endDate != null) request.fields['endDate'] = endDate.toIso8601String();
       if (certificateStartDate != null) request.fields['certificateStartDate'] = certificateStartDate.toIso8601String();
@@ -1113,8 +1413,139 @@ class ApiService {
   }
 
   // ========================================
+  // GESTION DES NOTIFICATIONS
+  // ========================================
+
+  // Récupérer les notifications
+  static Future<Map<String, dynamic>> getNotifications(String token) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl$apiPrefix/notifications'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de récupération');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Marquer une notification comme lue
+  static Future<Map<String, dynamic>> markNotificationAsRead(String token, String notificationId) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl$apiPrefix/notifications/$notificationId/read'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Marquer toutes les notifications comme lues
+  static Future<Map<String, dynamic>> markAllNotificationsAsRead(String token) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl$apiPrefix/notifications/read-all'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Supprimer une notification
+  static Future<Map<String, dynamic>> deleteNotification(String token, String notificationId) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl$apiPrefix/notifications/$notificationId'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de suppression');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // ========================================
   // GESTION DES UTILISATEURS (ADMIN)
   // ========================================
+
+  // Récupérer les statistiques admin
+  static Future<Map<String, dynamic>> getAdminStats(String token) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl$apiPrefix/admin/stats'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de récupération des statistiques');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Récupérer les statistiques (accessible à tous les utilisateurs authentifiés)
+  // Retourne des données selon les permissions (employés voient seulement publications)
+  static Future<Map<String, dynamic>> getStats(String token) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl$apiPrefix/stats'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de récupération des statistiques');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
 
   // Lister les utilisateurs
   static Future<Map<String, dynamic>> getUsers(String token) async {
@@ -1188,11 +1619,6 @@ class ApiService {
   // MÉTHODES UTILITAIRES PRIVÉES
   // ========================================
 
-  // Méthode helper pour s'assurer que l'API est initialisée
-  static Future<void> _ensureInitialized() async {
-    await initialize();
-  }
-
   // Obtenir les informations du serveur (utilise l'URL dynamique)
   static Future<Map<String, dynamic>> getServerInfo() async {
     await _ensureInitialized();
@@ -1242,6 +1668,180 @@ class ApiService {
         return MediaType('video', 'mkv');
       default:
         return MediaType('application', 'octet-stream');
+    }
+  }
+
+  // ========================================
+  // COMMUNICATION (EMAIL, WHATSAPP, APPELS)
+  // ========================================
+
+  // Envoyer un email à un employé
+  static Future<Map<String, dynamic>> sendEmailToEmployee(
+    String token,
+    String employeeId,
+    String subject,
+    String message,
+  ) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl$apiPrefix/employees/$employeeId/send-email'),
+        headers: _authHeaders(token),
+        body: json.encode({
+          'subject': subject,
+          'message': message,
+        }),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur lors de l\'envoi de l\'email');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Obtenir le lien WhatsApp pour contacter un employé
+  static Future<Map<String, dynamic>> getWhatsAppLink(
+    String token,
+    String employeeId, {
+    String? message,
+  }) async {
+    await _ensureInitialized();
+    try {
+      final queryParams = message != null ? {'message': message} : <String, String>{};
+      final uri = Uri.parse('$baseUrl$apiPrefix/employees/$employeeId/whatsapp-link')
+          .replace(queryParameters: queryParams);
+
+      final response = await http.get(
+        uri,
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur lors de la génération du lien WhatsApp');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Obtenir les informations pour appeler un employé
+  static Future<Map<String, dynamic>> getCallInfo(
+    String token,
+    String employeeId,
+  ) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl$apiPrefix/employees/$employeeId/call'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur lors de la récupération du numéro');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // ============= STATISTIQUES =============
+
+  // Récupérer les statistiques globales
+  Future<Map<String, dynamic>> getStatisticsOverview(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/statistics/overview'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['statistics'];
+      } else {
+        throw Exception('Erreur ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Récupérer les données de géolocalisation
+  Future<Map<String, dynamic>> getGeolocationData(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/statistics/geolocation'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Erreur ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Récupérer les employés en ligne
+  Future<Map<String, dynamic>> getOnlineEmployees(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/statistics/online-employees'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Erreur ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
+  // Récupérer les détails par département
+  Future<Map<String, dynamic>> getDepartmentsDetails(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/statistics/departments-details'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Erreur ${response.statusCode}: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
     }
   }
 }

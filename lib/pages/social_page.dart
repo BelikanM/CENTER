@@ -1,6 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../main.dart';
+import '../api_service.dart';
 import '../components/post_card.dart';
 import '../components/story_circle.dart';
+import 'create_publication_page.dart';
+import 'map_view_page.dart';
+import 'comments_page.dart';
+import 'all_stories_page.dart';
+import 'create_story_page.dart';
+import 'story_view_page.dart';
 
 class SocialPage extends StatefulWidget {
   const SocialPage({super.key});
@@ -9,15 +18,24 @@ class SocialPage extends StatefulWidget {
   State<SocialPage> createState() => _SocialPageState();
 }
 
-class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin {
+class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
   late AnimationController _fabAnimationController;
   late Animation<double> _fabAnimation;
   bool _showFab = true;
 
+  // État de chargement et données depuis l'API
+  bool _isLoading = false;
+  List<dynamic> _publications = [];
+  String? _error;
+  int _currentPage = 1;
+  bool _hasMore = true;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    
     _fabAnimationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
@@ -41,11 +59,246 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin {
         setState(() => _showFab = true);
         _fabAnimationController.forward();
       }
+
+      // Infinite scroll
+      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+        _loadMorePublications();
+      }
     });
+
+    _loadPublications();
+    _listenToWebSocket();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Recharger quand l'app revient au premier plan
+    if (state == AppLifecycleState.resumed) {
+      _loadPublications();
+    }
+  }
+
+  void _listenToWebSocket() {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    appProvider.webSocketStream.listen((message) {
+      // Recharger les publications quand un nouveau commentaire est ajouté
+      if (message['type'] == 'new_comment') {
+        _loadPublications();
+      }
+      // Recharger aussi pour les nouvelles publications
+      if (message['type'] == 'new_publication') {
+        _loadPublications();
+      }
+    });
+  }
+
+  Future<void> _loadPublications() async {
+    if (_isLoading) return;
+
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final token = appProvider.accessToken;
+
+    if (token == null) {
+      setState(() {
+        _error = 'Non authentifié';
+        _isLoading = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final result = await ApiService.getPublications(token, page: 1, limit: 20);
+      if (mounted) {
+        setState(() {
+          _publications = result['publications'] ?? [];
+          _currentPage = 1;
+          _hasMore = (result['pagination']?['currentPage'] ?? 1) < (result['pagination']?['totalPages'] ?? 1);
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+      debugPrint('Erreur chargement publications: $e');
+    }
+  }
+
+  Future<void> _loadMorePublications() async {
+    if (_isLoading || !_hasMore) return;
+
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final token = appProvider.accessToken;
+    if (token == null) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final nextPage = _currentPage + 1;
+      final result = await ApiService.getPublications(token, page: nextPage, limit: 20);
+      if (mounted) {
+        final newPubs = result['publications'] ?? [];
+        setState(() {
+          _publications.addAll(newPubs);
+          _currentPage = nextPage;
+          _hasMore = (result['pagination']?['currentPage'] ?? nextPage) < (result['pagination']?['totalPages'] ?? nextPage);
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+      debugPrint('Erreur chargement plus de publications: $e');
+    }
+  }
+
+  Future<void> _likePublication(String publicationId) async {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final token = appProvider.accessToken;
+    if (token == null) return;
+
+    try {
+      await ApiService.toggleLike(token, publicationId);
+      // Recharger les publications pour voir le like
+      _loadPublications();
+    } catch (e) {
+      debugPrint('Erreur like publication: $e');
+    }
+  }
+
+  Future<void> _navigateToCreatePublication() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const CreatePublicationPage()),
+    );
+
+    // Si une publication a été créée, recharger
+    if (result == true) {
+      _loadPublications();
+    }
+  }
+
+  void _showCommentsDialog(String publicationId, String publicationContent) async {
+    // Naviguer vers la page des commentaires et attendre le retour
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CommentsPage(
+          publicationId: publicationId,
+          publicationContent: publicationContent,
+        ),
+      ),
+    );
+    
+    // Recharger les publications après avoir quitté la page des commentaires
+    _loadPublications();
+  }
+
+  void _sharePublication(String publicationId) {
+    if (!mounted) return;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Partage en cours de développement'),
+        backgroundColor: Color(0xFF00D4FF),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _navigateToAllStories() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const AllStoriesPage(),
+      ),
+    );
+  }
+
+  void _navigateToCreateStory() {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final token = appProvider.accessToken;
+    
+    if (token == null) return;
+    
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreateStoryPage(token: token),
+      ),
+    ).then((result) {
+      if (result == true) {
+        // Recharger les stories si une nouvelle a été créée
+        setState(() {});
+      }
+    });
+  }
+
+  Future<void> _navigateToViewStory(int index) async {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final token = appProvider.accessToken;
+    
+    if (token == null) return;
+    
+    try {
+      // Charger les stories depuis l'API
+      final result = await ApiService.getStories(token);
+      final stories = (result['stories'] as List<dynamic>?)
+          ?.map((s) => s as Map<String, dynamic>)
+          .toList() ?? [];
+      
+      if (stories.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Aucune story disponible'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+        return;
+      }
+      
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => StoryViewPage(
+              token: token,
+              stories: stories,
+              initialIndex: index < stories.length ? index : 0,
+            ),
+          ),
+        ).then((_) {
+          // Recharger les stories après visualisation
+          setState(() {});
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur de chargement: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
     _fabAnimationController.dispose();
     super.dispose();
@@ -76,23 +329,43 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin {
           ),
         ),
       ),
-      floatingActionButton: AnimatedBuilder(
-        animation: _fabAnimation,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: _fabAnimation.value,
-            child: FloatingActionButton.extended(
-              onPressed: _showCreatePostDialog,
-              backgroundColor: const Color(0xFF00D4FF),
-              foregroundColor: Colors.black,
-              icon: const Icon(Icons.edit_rounded),
-              label: const Text(
-                'Publier',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
-          );
-        },
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          // Bouton Carte
+          FloatingActionButton(
+            heroTag: 'map',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const MapViewPage()),
+              );
+            },
+            backgroundColor: Colors.green,
+            child: const Icon(Icons.map_rounded, color: Colors.white),
+          ),
+          const SizedBox(height: 16),
+          // Bouton Créer Publication
+          AnimatedBuilder(
+            animation: _fabAnimation,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: _fabAnimation.value,
+                child: FloatingActionButton.extended(
+                  heroTag: 'create',
+                  onPressed: _navigateToCreatePublication,
+                  backgroundColor: const Color(0xFF00D4FF),
+                  foregroundColor: Colors.black,
+                  icon: const Icon(Icons.edit_rounded),
+                  label: const Text(
+                    'Publier',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -148,7 +421,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           'Réseau Social',
                           style: TextStyle(
                             color: Colors.white,
@@ -199,33 +472,52 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin {
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Text(
-                'Stories',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Stories',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: _navigateToAllStories,
+                    icon: const Icon(Icons.list_rounded, color: Color(0xFF00D4FF), size: 20),
+                    label: const Text(
+                      'Voir tout',
+                      style: TextStyle(
+                        color: Color(0xFF00D4FF),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 16),
             SizedBox(
-              height: 100,
+              height: 120,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 itemCount: 8,
                 itemBuilder: (context, index) {
                   return Padding(
-                    padding: const EdgeInsets.only(right: 16),
+                    padding: const EdgeInsets.only(right: 12),
                     child: StoryCircle(
-                      name: index == 0 ? 'Votre Story' : 'Utilisateur ${index + 1}',
+                      name: index == 0 ? 'Votre Story' : 'Utilisateur',
                       imageUrl: '',
                       isOwn: index == 0,
                       hasStory: index != 0,
                       onTap: () {
                         if (index == 0) {
-                          _showCreateStoryDialog();
+                          _navigateToCreateStory();
+                        } else {
+                          _navigateToViewStory(index);
                         }
                       },
                     ),
@@ -240,243 +532,138 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin {
   }
 
   Widget _buildPostsSection() {
+    if (_isLoading && _publications.isEmpty) {
+      return const SliverFillRemaining(
+        child: Center(
+          child: CircularProgressIndicator(
+            color: Color(0xFF00D4FF),
+          ),
+        ),
+      );
+    }
+
+    if (_error != null && _publications.isEmpty) {
+      return SliverFillRemaining(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.error_outline,
+                color: Colors.red,
+                size: 48,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Erreur: $_error',
+                style: const TextStyle(color: Colors.white70),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _loadPublications,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00D4FF),
+                  foregroundColor: Colors.black,
+                ),
+                child: const Text('Réessayer'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_publications.isEmpty) {
+      return const SliverFillRemaining(
+        child: Center(
+          child: Text(
+            'Aucune publication',
+            style: TextStyle(color: Colors.white70, fontSize: 16),
+          ),
+        ),
+      );
+    }
+
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate(
           (context, index) {
+            if (index >= _publications.length) {
+              // Loading indicator at bottom
+              return _isLoading
+                  ? const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF00D4FF),
+                        ),
+                      ),
+                    )
+                  : const SizedBox.shrink();
+            }
+
+            final pub = _publications[index];
+            final userId = pub['userId'] ?? {};
+            final userName = userId['name'] ?? 'Utilisateur';
+            final userEmail = userId['email'] ?? '';
+            final content = pub['content'] ?? '';
+            final likes = (pub['likes'] as List?)?.length ?? 0;
+            final comments = (pub['comments'] as List?)?.length ?? 0;
+            final media = pub['media'] as List?;
+            
+            // Gérer imageUrl (peut être String ou Map)
+            String? imageUrl;
+            if (media != null && media.isNotEmpty) {
+              final firstMedia = media[0];
+              if (firstMedia is String) {
+                imageUrl = firstMedia;
+              } else if (firstMedia is Map) {
+                imageUrl = firstMedia['url'] ?? firstMedia['path'];
+              }
+            }
+            
+            final createdAt = pub['createdAt'];
+            final publicationId = pub['_id'] ?? '';
+
+            // Calculate time ago
+            String timeAgo = 'maintenant';
+            if (createdAt != null) {
+              try {
+                final date = DateTime.parse(createdAt);
+                final diff = DateTime.now().difference(date);
+                if (diff.inDays > 0) {
+                  timeAgo = '${diff.inDays}j';
+                } else if (diff.inHours > 0) {
+                  timeAgo = '${diff.inHours}h';
+                } else if (diff.inMinutes > 0) {
+                  timeAgo = '${diff.inMinutes}min';
+                }
+              } catch (e) {
+                debugPrint('Erreur parse date: $e');
+              }
+            }
+
             return Padding(
               padding: const EdgeInsets.only(bottom: 16),
               child: PostCard(
-                userName: 'Marie Dubois',
-                userRole: 'Développeuse Senior',
-                timeAgo: '${index + 1}h',
-                content: _getPostContent(index),
-                likes: (index + 1) * 12,
-                comments: (index + 1) * 3,
-                shares: index + 1,
-                imageUrl: index % 3 == 0 ? 'https://picsum.photos/400/300?random=$index' : null,
-                onLike: () {},
-                onComment: () {},
-                onShare: () {},
+                userName: userName,
+                userRole: userEmail,
+                timeAgo: timeAgo,
+                content: content,
+                likes: likes,
+                comments: comments,
+                shares: 0, // Backend doesn't have shares yet
+                imageUrl: imageUrl,
+                onLike: () => _likePublication(publicationId),
+                onComment: () => _showCommentsDialog(publicationId, content),
+                onShare: () => _sharePublication(publicationId),
               ),
             );
           },
-          childCount: 10,
+          childCount: _publications.length + (_isLoading ? 1 : 0),
         ),
-      ),
-    );
-  }
-
-  String _getPostContent(int index) {
-    final contents = [
-      'Excellente réunion d\'équipe aujourd\'hui ! Nous avons fait de grands progrès sur le nouveau projet. 🚀',
-      'Merci à toute l\'équipe pour le travail acharné cette semaine. Les résultats parlent d\'eux-mêmes ! 💪',
-      'Nouvelle fonctionnalité déployée avec succès ! Les utilisateurs vont adorer cette mise à jour.',
-      'Formation sur les nouvelles technologies terminée. Toujours excitant d\'apprendre de nouvelles choses ! 📚',
-      'Belle collaboration avec l\'équipe design aujourd\'hui. Le nouveau design est incroyable ! 🎨',
-      'Code review terminé ! Merci à tous pour vos commentaires constructifs.',
-      'Pause café bien méritée après cette intense session de debugging ! ☕',
-      'Les tests automatisés fonctionnent parfaitement. Qualité code au top ! ✅',
-      'Sprint terminé avec succès ! Prêts pour le prochain challenge.',
-      'Brainstorming productif pour les prochaines fonctionnalités. Des idées brillantes ! 💡',
-    ];
-    return contents[index % contents.length];
-  }
-
-  void _showCreatePostDialog() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.8,
-        decoration: const BoxDecoration(
-          color: Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  Container(
-                    width: 50,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Text(
-                        'Créer une publication',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const Spacer(),
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text(
-                          'Publier',
-                          style: TextStyle(
-                            color: Color(0xFF00D4FF),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: TextField(
-                  maxLines: null,
-                  expands: true,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: 'Que voulez-vous partager ?',
-                    hintStyle: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5),
-                    ),
-                    border: InputBorder.none,
-                  ),
-                ),
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.all(24),
-              child: Row(
-                children: [
-                  _buildPostOption(Icons.image_rounded, 'Photo'),
-                  const SizedBox(width: 24),
-                  _buildPostOption(Icons.videocam_rounded, 'Vidéo'),
-                  const SizedBox(width: 24),
-                  _buildPostOption(Icons.location_on_rounded, 'Lieu'),
-                  const SizedBox(width: 24),
-                  _buildPostOption(Icons.poll_rounded, 'Sondage'),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showCreateStoryDialog() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Color(0xFF1A1A1A),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 50,
-              height: 5,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Créer une Story',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildStoryOption(Icons.camera_alt_rounded, 'Photo', const Color(0xFF00D4FF)),
-                _buildStoryOption(Icons.videocam_rounded, 'Vidéo', const Color(0xFFFF6B35)),
-                _buildStoryOption(Icons.text_fields_rounded, 'Texte', const Color(0xFF9C27B0)),
-              ],
-            ),
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPostOption(IconData icon, String label) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(
-            icon,
-            color: Colors.white.withValues(alpha: 0.7),
-            size: 20,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.7),
-            fontSize: 12,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStoryOption(IconData icon, String label, Color color) {
-    return GestureDetector(
-      onTap: () => Navigator.pop(context),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: color.withValues(alpha: 0.3),
-                width: 1,
-              ),
-            ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 32,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
       ),
     );
   }

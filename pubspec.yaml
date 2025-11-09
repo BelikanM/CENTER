@@ -53,10 +53,36 @@ dependencies:
   # State Management
   provider: ^6.1.1
   
+  # Storage
+  shared_preferences: ^2.2.2
+  
+  # WebSocket
+  web_socket_channel: ^3.0.1
+  
+  # Image Picker
+  image_picker: ^1.0.7
+  
+  # Video Player
+  video_player: ^2.8.2
+  
+  # File Picker (audio, documents)
+  file_picker: ^8.1.4
+  
+  # Géolocalisation
+  geolocator: ^13.0.2
+  permission_handler: ^11.3.1
+  
+  # Maps
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  
   # Utils
   intl: ^0.19.0
   shimmer: ^3.0.0
   cached_network_image: ^3.3.0
+  
+  # Communication
+  url_launcher: ^6.3.1
   
   # Animations
   flutter_staggered_animations: ^1.1.1

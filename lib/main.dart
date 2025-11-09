@@ -2,149 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import 'pages/main_page.dart';
 import 'api_service.dart';
-
-// Data Models
-class User {
-  final String id;
-  final String name;
-  final String email;
-  final String avatar;
-  String status; // 'active', 'inactive', 'banned'
-
-  User({
-    required this.id,
-    required this.name,
-    required this.email,
-    required this.avatar,
-    this.status = 'active',
-  });
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'email': email,
-    'avatar': avatar,
-    'status': status,
-  };
-
-  factory User.fromJson(Map<String, dynamic> json) => User(
-    id: json['id'],
-    name: json['name'],
-    email: json['email'],
-    avatar: json['avatar'],
-    status: json['status'] ?? 'active',
-  );
-}
-
-class Employee {
-  final String id;
-  final String name;
-  final String email;
-  final String avatar;
-  final String position;
-  final String department;
-  String status; // 'active', 'on_leave', 'terminated'
-
-  Employee({
-    required this.id,
-    required this.name,
-    required this.email,
-    required this.avatar,
-    required this.position,
-    required this.department,
-    this.status = 'active',
-  });
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'email': email,
-    'avatar': avatar,
-    'position': position,
-    'department': department,
-    'status': status,
-  };
-
-  factory Employee.fromJson(Map<String, dynamic> json) => Employee(
-    id: json['id'],
-    name: json['name'],
-    email: json['email'],
-    avatar: json['avatar'],
-    position: json['position'],
-    department: json['department'],
-    status: json['status'] ?? 'active',
-  );
-}
-
-class Post {
-  final String id;
-  final String userId;
-  final String content;
-  final String imageUrl;
-  final DateTime createdAt;
-  final List<String> likes;
-  final List<Comment> comments;
-
-  Post({
-    required this.id,
-    required this.userId,
-    required this.content,
-    required this.imageUrl,
-    required this.createdAt,
-    required this.likes,
-    required this.comments,
-  });
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'userId': userId,
-    'content': content,
-    'imageUrl': imageUrl,
-    'createdAt': createdAt.toIso8601String(),
-    'likes': likes,
-    'comments': comments.map((c) => c.toJson()).toList(),
-  };
-
-  factory Post.fromJson(Map<String, dynamic> json) => Post(
-    id: json['id'],
-    userId: json['userId'],
-    content: json['content'],
-    imageUrl: json['imageUrl'],
-    createdAt: DateTime.parse(json['createdAt']),
-    likes: List<String>.from(json['likes']),
-    comments: (json['comments'] as List).map((c) => Comment.fromJson(c)).toList(),
-  );
-}
-
-class Comment {
-  final String id;
-  final String userId;
-  final String content;
-  final DateTime createdAt;
-
-  Comment({
-    required this.id,
-    required this.userId,
-    required this.content,
-    required this.createdAt,
-  });
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'userId': userId,
-    'content': content,
-    'createdAt': createdAt.toIso8601String(),
-  };
-
-  factory Comment.fromJson(Map<String, dynamic> json) => Comment(
-    id: json['id'],
-    userId: json['userId'],
-    content: json['content'],
-    createdAt: DateTime.parse(json['createdAt']),
-  );
-}
+import 'websocket_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -159,9 +21,10 @@ void main() async {
     ),
   );
   
-  // Forcer l'utilisation de l'adresse par défaut (192.168.1.66:5000)
-  // Évite les problèmes de détection automatique
+  // FORCER le reset et l'utilisation de l'adresse par défaut (192.168.1.66:5000)
+  ApiService.reset();
   ApiService.useDefaultUrl();
+  debugPrint('🔧 API Service réinitialisé - BaseURL: ${ApiService.baseUrl}');
   
   runApp(const CenterApp());
 }
@@ -173,13 +36,46 @@ class CenterApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AppProvider()),
+        ChangeNotifierProvider(
+          create: (_) {
+            final provider = AppProvider();
+            provider.initialize(); // Charger les données sauvegardées
+            return provider;
+          },
+        ),
       ],
-      child: MaterialApp(
-        title: 'Center - Personnel & Social',
-        debugShowCheckedModeBanner: false,
-        theme: _buildTheme(),
-        home: const MainPage(),
+      child: Consumer<AppProvider>(
+        builder: (context, appProvider, _) {
+          // Afficher un loading pendant l'initialisation
+          if (!appProvider.isInitialized) {
+            return MaterialApp(
+              debugShowCheckedModeBanner: false,
+              home: Scaffold(
+                body: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.white, Color(0xFFF8FFF8)],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                  ),
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF25D366),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }
+
+          return MaterialApp(
+            title: 'Center - Personnel & Social',
+            debugShowCheckedModeBanner: false,
+            theme: _buildTheme(),
+            home: const MainPage(),
+          );
+        },
       ),
     );
   }
@@ -284,114 +180,114 @@ class AppProvider extends ChangeNotifier {
   bool _isAuthenticated = false;
   String? _accessToken;
   Map<String, dynamic>? _currentUser;
-
-  // Mock data
-  final List<User> _users = [
-    User(
-      id: '1',
-      name: 'Alice Dupont',
-      email: 'alice@example.com',
-      avatar: 'https://randomuser.me/api/portraits/women/1.jpg',
-      status: 'active',
-    ),
-    User(
-      id: '2',
-      name: 'Bob Martin',
-      email: 'bob@example.com',
-      avatar: 'https://randomuser.me/api/portraits/men/2.jpg',
-      status: 'active',
-    ),
-    User(
-      id: '3',
-      name: 'nyundumathryme@gmail.com',
-      email: 'nyundumathryme@gmail.com',
-      avatar: 'https://randomuser.me/api/portraits/men/3.jpg',
-      status: 'active',
-    ),
-  ];
-
-  final List<Employee> _employees = [
-    Employee(
-      id: '1',
-      name: 'Alice Dupont',
-      email: 'alice@example.com',
-      avatar: 'https://randomuser.me/api/portraits/women/1.jpg',
-      position: 'Développeur Senior',
-      department: 'IT',
-      status: 'active',
-    ),
-    Employee(
-      id: '2',
-      name: 'Bob Martin',
-      email: 'bob@example.com',
-      avatar: 'https://randomuser.me/api/portraits/men/2.jpg',
-      position: 'Designer UX',
-      department: 'Design',
-      status: 'active',
-    ),
-  ];
-
-  final List<Post> _posts = [
-    Post(
-      id: '1',
-      userId: '1',
-      content: 'Bienvenue sur Center !',
-      imageUrl: '',
-      createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-      likes: ['2'],
-      comments: [],
-    ),
-  ];
+  bool _isInitialized = false;
+  final WebSocketService _wsService = WebSocketService();
 
   int get currentIndex => _currentIndex;
   bool get isAuthenticated => _isAuthenticated;
   String? get accessToken => _accessToken;
   Map<String, dynamic>? get currentUser => _currentUser;
-  List<User> get users => _users;
-  List<Employee> get employees => _employees;
-  List<Post> get posts => _posts;
+  bool get isInitialized => _isInitialized;
+  Stream<Map<String, dynamic>> get webSocketStream => _wsService.stream;
+
+  // Clés pour SharedPreferences
+  static const String _keyIsAuthenticated = 'is_authenticated';
+  static const String _keyAccessToken = 'access_token';
+  static const String _keyCurrentUser = 'current_user';
+
+  // Initialiser et charger les données sauvegardées
+  Future<void> initialize() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      _isAuthenticated = prefs.getBool(_keyIsAuthenticated) ?? false;
+      _accessToken = prefs.getString(_keyAccessToken);
+      
+      final userJson = prefs.getString(_keyCurrentUser);
+      if (userJson != null) {
+        _currentUser = json.decode(userJson) as Map<String, dynamic>;
+      }
+      
+      _isInitialized = true;
+      
+      debugPrint('🔐 AppProvider initialisé - Authentifié: $_isAuthenticated');
+      if (_isAuthenticated) {
+        debugPrint('👤 Utilisateur: ${_currentUser?['email']}');
+        // Connecter WebSocket si authentifié
+        if (_accessToken != null) {
+          _wsService.connect(_accessToken!);
+        }
+      }
+      
+      notifyListeners();
+    } catch (e) {
+      debugPrint('❌ Erreur initialisation AppProvider: $e');
+      _isInitialized = true;
+      notifyListeners();
+    }
+  }
 
   void setCurrentIndex(int index) {
     _currentIndex = index;
     notifyListeners();
   }
 
-  void setAuthenticated(bool authenticated, {String? token, Map<String, dynamic>? user}) {
+  Future<void> setAuthenticated(bool authenticated, {String? token, Map<String, dynamic>? user}) async {
     _isAuthenticated = authenticated;
     _accessToken = token;
     _currentUser = user;
+    
+    // Sauvegarder dans SharedPreferences
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_keyIsAuthenticated, authenticated);
+      
+      if (token != null) {
+        await prefs.setString(_keyAccessToken, token);
+      } else {
+        await prefs.remove(_keyAccessToken);
+      }
+      
+      if (user != null) {
+        await prefs.setString(_keyCurrentUser, json.encode(user));
+      } else {
+        await prefs.remove(_keyCurrentUser);
+      }
+      
+      debugPrint('💾 Authentification sauvegardée - Token: ${token?.substring(0, 20)}...');
+      
+      // Connecter WebSocket si authentifié
+      if (authenticated && token != null) {
+        _wsService.connect(token);
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur sauvegarde authentification: $e');
+    }
+    
     notifyListeners();
   }
 
-  void logout() {
+  Future<void> logout() async {
+    // Déconnecter WebSocket
+    _wsService.disconnect();
+    
     _isAuthenticated = false;
     _accessToken = null;
     _currentUser = null;
     _currentIndex = 0;
-    notifyListeners();
-  }
-
-  // User management methods
-  void updateUserStatus(String userId, String status) {
-    final user = _users.firstWhere((u) => u.id == userId);
-    user.status = status;
-    notifyListeners();
-  }
-
-  void deleteUser(String userId) {
-    _users.removeWhere((u) => u.id == userId);
-    notifyListeners();
-  }
-
-  // Employee management methods
-  void updateEmployeeStatus(String employeeId, String status) {
-    final employee = _employees.firstWhere((e) => e.id == employeeId);
-    employee.status = status;
-    notifyListeners();
-  }
-
-  void deleteEmployee(String employeeId) {
-    _employees.removeWhere((e) => e.id == employeeId);
+    
+    // Supprimer de SharedPreferences
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_keyIsAuthenticated);
+      await prefs.remove(_keyAccessToken);
+      await prefs.remove(_keyCurrentUser);
+      
+      debugPrint('🚪 Déconnexion - Données supprimées');
+    } catch (e) {
+      debugPrint('❌ Erreur suppression données: $e');
+    }
+    
     notifyListeners();
   }
 }

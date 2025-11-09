@@ -1,0 +1,416 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../main.dart';
+import '../api_service.dart';
+import 'create_story_page.dart';
+import 'story_view_page.dart';
+
+class AllStoriesPage extends StatefulWidget {
+  const AllStoriesPage({super.key});
+
+  @override
+  State<AllStoriesPage> createState() => _AllStoriesPageState();
+}
+
+class _AllStoriesPageState extends State<AllStoriesPage> {
+  final TextEditingController _searchController = TextEditingController();
+  List<Map<String, dynamic>> _stories = [];
+  List<Map<String, dynamic>> _filteredStories = [];
+  bool _isLoading = true;
+  String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStories();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadStories() async {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final token = appProvider.accessToken;
+
+    if (token == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      final result = await ApiService.getStories(token);
+      if (mounted) {
+        final storiesList = result['stories'] as List?;
+        setState(() {
+          _stories = storiesList?.cast<Map<String, dynamic>>() ?? [];
+          _filteredStories = _stories;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+      debugPrint('Erreur chargement stories: $e');
+    }
+  }
+
+  void _filterStories(String query) {
+    setState(() {
+      _searchQuery = query;
+      if (query.isEmpty) {
+        _filteredStories = _stories;
+      } else {
+        _filteredStories = _stories.where((story) {
+          final userName = '${story['user']?['firstName'] ?? ''} ${story['user']?['lastName'] ?? ''}';
+          return userName.toLowerCase().contains(query.toLowerCase());
+        }).toList();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0A0E21),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Toutes les Stories',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add_circle_outline, color: Color(0xFF00D4FF)),
+            onPressed: () {
+              final appProvider = Provider.of<AppProvider>(context, listen: false);
+              final token = appProvider.accessToken;
+              
+              if (token == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Non connecté')),
+                );
+                return;
+              }
+              
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => CreateStoryPage(token: token),
+                ),
+              ).then((_) => _loadStories());
+            },
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Barre de recherche
+          Container(
+            margin: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.1),
+              ),
+            ),
+            child: TextField(
+              controller: _searchController,
+              onChanged: _filterStories,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: 'Rechercher une story...',
+                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+                prefixIcon: const Icon(Icons.search, color: Color(0xFF00D4FF)),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, color: Colors.white54),
+                        onPressed: () {
+                          _searchController.clear();
+                          _filterStories('');
+                        },
+                      )
+                    : null,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              ),
+            ),
+          ),
+
+          // Liste des stories
+          Expanded(
+            child: _isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(color: Color(0xFF00D4FF)),
+                  )
+                : _filteredStories.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.photo_library_outlined,
+                              size: 64,
+                              color: Colors.white.withValues(alpha: 0.3),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              _searchQuery.isEmpty
+                                  ? 'Aucune story disponible'
+                                  : 'Aucun résultat trouvé',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.7),
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : GridView.builder(
+                        padding: const EdgeInsets.all(16),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: 0.75,
+                        ),
+                        itemCount: _filteredStories.length,
+                        itemBuilder: (context, index) {
+                          final story = _filteredStories[index];
+                          return _buildStoryCard(story, index);
+                        },
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStoryCard(Map<String, dynamic> story, int index) {
+    final user = story['user'] ?? {};
+    final userName = '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
+    final userImage = user['faceImage'] ?? user['avatar'] ?? '';
+    final storyImage = story['imageUrl'] ?? story['mediaUrl'] ?? '';
+    final timeAgo = _formatTimeAgo(story['createdAt']);
+    final isViewed = story['isViewed'] ?? false;
+
+    return GestureDetector(
+      onTap: () {
+        final appProvider = Provider.of<AppProvider>(context, listen: false);
+        final token = appProvider.accessToken;
+        
+        if (token == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Non connecté')),
+          );
+          return;
+        }
+        
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => StoryViewPage(
+              token: token,
+              stories: _filteredStories,
+              initialIndex: index,
+            ),
+          ),
+        ).then((_) => _loadStories());
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(
+            color: isViewed
+                ? Colors.grey.withValues(alpha: 0.3)
+                : const Color(0xFF00D4FF),
+            width: 3,
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Image de fond
+              storyImage.isNotEmpty
+                  ? Image.network(
+                      storyImage,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                const Color(0xFF00D4FF).withValues(alpha: 0.3),
+                                const Color(0xFF9C27B0).withValues(alpha: 0.3),
+                              ],
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.image_not_supported,
+                            color: Colors.white54,
+                            size: 48,
+                          ),
+                        );
+                      },
+                    )
+                  : Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            const Color(0xFF00D4FF).withValues(alpha: 0.5),
+                            const Color(0xFF9C27B0).withValues(alpha: 0.5),
+                          ],
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          story['content'] ?? '',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 4,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+
+              // Gradient overlay
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.5),
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.8),
+                    ],
+                  ),
+                ),
+              ),
+
+              // User info
+              Positioned(
+                top: 12,
+                left: 12,
+                right: 12,
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundColor: const Color(0xFF00D4FF),
+                      backgroundImage: userImage.isNotEmpty
+                          ? NetworkImage(userImage)
+                          : null,
+                      child: userImage.isEmpty
+                          ? Text(
+                              userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            )
+                          : null,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            userName.isEmpty ? 'Utilisateur' : userName,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            timeAgo,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.7),
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Viewed indicator
+              if (isViewed)
+                Positioned(
+                  bottom: 12,
+                  right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withValues(alpha: 0.8),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check, color: Colors.white, size: 14),
+                        SizedBox(width: 4),
+                        Text(
+                          'Vu',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatTimeAgo(dynamic createdAt) {
+    if (createdAt == null) return 'Maintenant';
+    
+    try {
+      final date = DateTime.parse(createdAt.toString());
+      final diff = DateTime.now().difference(date);
+      
+      if (diff.inSeconds < 60) return 'À l\'instant';
+      if (diff.inMinutes < 60) return 'Il y a ${diff.inMinutes}min';
+      if (diff.inHours < 24) return 'Il y a ${diff.inHours}h';
+      return 'Il y a ${diff.inDays}j';
+    } catch (e) {
+      return 'Maintenant';
+    }
+  }
+}

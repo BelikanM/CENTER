@@ -3,15 +3,111 @@ import 'package:provider/provider.dart';
 import '../main.dart';
 import '../components/futuristic_card.dart';
 import '../components/gradient_button.dart';
+import '../api_service.dart';
 
-class AdminPage extends StatelessWidget {
+class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
+
+  @override
+  State<AdminPage> createState() => _AdminPageState();
+}
+
+class _AdminPageState extends State<AdminPage> {
+  bool _isLoadingStats = false;
+  bool _isLoadingUsers = false;
+  bool _isLoadingEmployees = false;
+  Map<String, dynamic>? _stats;
+  List<dynamic> _users = [];
+  List<dynamic> _employees = [];
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAdminData();
+  }
+
+  Future<void> _loadAdminData() async {
+    // Éviter les appels simultanés
+    if (_isLoadingStats) {
+      debugPrint('⏳ Chargement déjà en cours, ignoré');
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoadingStats = true;
+        _isLoadingUsers = true;
+        _isLoadingEmployees = true;
+        _error = null;
+      });
+    }
+
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final token = appProvider.accessToken;
+
+    if (token == null) {
+      debugPrint('⚠️ Token manquant');
+      if (mounted) {
+        setState(() {
+          _error = 'Token manquant';
+          _isLoadingStats = false;
+          _isLoadingUsers = false;
+          _isLoadingEmployees = false;
+        });
+      }
+      return;
+    }
+
+    // Charger les statistiques
+    try {
+      final stats = await ApiService.getAdminStats(token);
+      setState(() {
+        _stats = stats;
+        _isLoadingStats = false;
+      });
+    } catch (e) {
+      debugPrint('Erreur chargement stats: $e');
+      setState(() {
+        _error = 'Erreur stats: $e';
+        _isLoadingStats = false;
+      });
+    }
+
+    // Charger les utilisateurs
+    try {
+      final usersData = await ApiService.getUsers(token);
+      setState(() {
+        _users = usersData['users'] ?? [];
+        _isLoadingUsers = false;
+      });
+    } catch (e) {
+      debugPrint('Erreur chargement users: $e');
+      setState(() {
+        _isLoadingUsers = false;
+      });
+    }
+
+    // Charger les employés
+    try {
+      final employeesData = await ApiService.getEmployees(token);
+      setState(() {
+        _employees = employeesData['employees'] ?? [];
+        _isLoadingEmployees = false;
+      });
+    } catch (e) {
+      debugPrint('Erreur chargement employees: $e');
+      setState(() {
+        _isLoadingEmployees = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, appProvider, child) {
-        // Check if user is admin (mock check - in real app, check from backend)
+        // Check if user is admin
         final isAdmin = appProvider.currentUser?['email'] == 'nyundumathryme@gmail.com';
 
         if (!isAdmin) {
@@ -32,6 +128,13 @@ class AdminPage extends StatelessWidget {
             backgroundColor: Colors.transparent,
             elevation: 0,
             centerTitle: true,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh, color: Colors.white),
+                onPressed: _loadAdminData,
+                tooltip: 'Rafraîchir',
+              ),
+            ],
           ),
           body: ListView(
             padding: const EdgeInsets.all(20),
@@ -98,6 +201,25 @@ class AdminPage extends StatelessWidget {
   }
 
   Widget _buildAdminStats(BuildContext context, AppProvider appProvider) {
+    if (_isLoadingStats) {
+      return const FuturisticCard(
+        child: Center(
+          child: CircularProgressIndicator(color: Color(0xFF00D4FF)),
+        ),
+      );
+    }
+
+    if (_error != null || _stats == null) {
+      return FuturisticCard(
+        child: Center(
+          child: Text(
+            _error ?? 'Erreur de chargement',
+            style: const TextStyle(color: Colors.red),
+          ),
+        ),
+      );
+    }
+
     return FuturisticCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -120,7 +242,7 @@ class AdminPage extends StatelessWidget {
               Text(
                 'Statistiques Globales',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.white,
+                  color: Colors.black87,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -133,7 +255,7 @@ class AdminPage extends StatelessWidget {
                 child: _buildStatItem(
                   context,
                   label: 'Utilisateurs',
-                  value: '${appProvider.users.length}',
+                  value: '${_stats!['users']['total']}',
                   icon: Icons.people_rounded,
                   color: const Color(0xFF00D4FF),
                 ),
@@ -143,7 +265,7 @@ class AdminPage extends StatelessWidget {
                 child: _buildStatItem(
                   context,
                   label: 'Employés',
-                  value: '${appProvider.employees.length}',
+                  value: '${_stats!['employees']['total']}',
                   icon: Icons.business_center_rounded,
                   color: const Color(0xFFFF6B35),
                 ),
@@ -157,7 +279,7 @@ class AdminPage extends StatelessWidget {
                 child: _buildStatItem(
                   context,
                   label: 'Publications',
-                  value: '${appProvider.posts.length}',
+                  value: '${_stats!['publications']['total']}',
                   icon: Icons.article_rounded,
                   color: const Color(0xFF9C27B0),
                 ),
@@ -167,7 +289,7 @@ class AdminPage extends StatelessWidget {
                 child: _buildStatItem(
                   context,
                   label: 'Actifs',
-                  value: '${appProvider.users.where((u) => u.status == 'active').length}',
+                  value: '${_stats!['users']['active']}',
                   icon: Icons.check_circle_rounded,
                   color: Colors.green,
                 ),
@@ -222,6 +344,14 @@ class AdminPage extends StatelessWidget {
   }
 
   Widget _buildUserManagement(BuildContext context, AppProvider appProvider) {
+    if (_isLoadingUsers) {
+      return const FuturisticCard(
+        child: Center(
+          child: CircularProgressIndicator(color: Color(0xFF00D4FF)),
+        ),
+      );
+    }
+
     return FuturisticCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -244,20 +374,34 @@ class AdminPage extends StatelessWidget {
               Text(
                 'Gestion des Utilisateurs',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.white,
+                  color: Colors.black87,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 20),
-          ...appProvider.users.map((user) => _buildUserItem(context, user, appProvider)),
+          if (_users.isEmpty)
+            const Center(
+              child: Text(
+                'Aucun utilisateur',
+                style: TextStyle(color: Colors.black54),
+              ),
+            )
+          else
+            ..._users.map((user) => _buildUserItem(context, user, appProvider)),
         ],
       ),
     );
   }
 
-  Widget _buildUserItem(BuildContext context, User user, AppProvider appProvider) {
+  Widget _buildUserItem(BuildContext context, dynamic user, AppProvider appProvider) {
+    final String userId = user['_id'] ?? user['id'] ?? '';
+    final String name = user['name'] ?? 'Sans nom';
+    final String email = user['email'] ?? '';
+    final String status = user['status'] ?? 'active';
+    final String profileImage = user['profileImage'] ?? '';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -272,8 +416,14 @@ class AdminPage extends StatelessWidget {
       child: Row(
         children: [
           CircleAvatar(
-            backgroundImage: NetworkImage(user.avatar),
+            backgroundImage: profileImage.isNotEmpty
+                ? NetworkImage(profileImage)
+                : null,
+            backgroundColor: Colors.grey[300],
             radius: 24,
+            child: profileImage.isEmpty
+                ? const Icon(Icons.person, color: Colors.grey)
+                : null,
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -281,7 +431,7 @@ class AdminPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  user.name,
+                  name,
                   style: const TextStyle(
                     color: Colors.black87,
                     fontWeight: FontWeight.w600,
@@ -289,7 +439,7 @@ class AdminPage extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  user.email,
+                  email,
                   style: TextStyle(
                     color: Colors.black54,
                     fontSize: 14,
@@ -299,7 +449,7 @@ class AdminPage extends StatelessWidget {
             ),
           ),
           PopupMenuButton<String>(
-            onSelected: (value) => _handleUserAction(context, user, value, appProvider),
+            onSelected: (value) => _handleUserAction(context, userId, value, appProvider),
             itemBuilder: (context) => [
               const PopupMenuItem(
                 value: 'activate',
@@ -317,12 +467,12 @@ class AdminPage extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: _getStatusColor(user.status).withValues(alpha: 0.1),
+                color: _getStatusColor(status).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
                 Icons.more_vert_rounded,
-                color: _getStatusColor(user.status),
+                color: _getStatusColor(status),
                 size: 20,
               ),
             ),
@@ -333,6 +483,14 @@ class AdminPage extends StatelessWidget {
   }
 
   Widget _buildEmployeeManagement(BuildContext context, AppProvider appProvider) {
+    if (_isLoadingEmployees) {
+      return const FuturisticCard(
+        child: Center(
+          child: CircularProgressIndicator(color: Color(0xFFFF6B35)),
+        ),
+      );
+    }
+
     return FuturisticCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -362,13 +520,29 @@ class AdminPage extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 20),
-          ...appProvider.employees.map((employee) => _buildEmployeeItem(context, employee, appProvider)),
+          if (_employees.isEmpty)
+            const Center(
+              child: Text(
+                'Aucun employé',
+                style: TextStyle(color: Colors.black54),
+              ),
+            )
+          else
+            ..._employees.map((employee) => _buildEmployeeItem(context, employee, appProvider)),
         ],
       ),
     );
   }
 
-  Widget _buildEmployeeItem(BuildContext context, Employee employee, AppProvider appProvider) {
+  Widget _buildEmployeeItem(BuildContext context, dynamic employee, AppProvider appProvider) {
+    // ignore: unused_local_variable
+    final String employeeId = employee['_id'] ?? employee['id'] ?? '';
+    final String name = employee['name'] ?? 'Sans nom';
+    final String email = employee['email'] ?? '';
+    final String phone = employee['phone'] ?? '';
+    final String status = employee['status'] ?? 'active';
+    final String faceImage = employee['faceImage'] ?? '';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -383,8 +557,14 @@ class AdminPage extends StatelessWidget {
       child: Row(
         children: [
           CircleAvatar(
-            backgroundImage: NetworkImage(employee.avatar),
+            backgroundImage: faceImage.isNotEmpty 
+              ? NetworkImage(faceImage) 
+              : null,
             radius: 24,
+            backgroundColor: const Color(0xFFFF6B35),
+            child: faceImage.isEmpty 
+              ? const Icon(Icons.person, color: Colors.white) 
+              : null,
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -392,27 +572,29 @@ class AdminPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  employee.name,
+                  name,
                   style: const TextStyle(
                     color: Colors.black87,
                     fontWeight: FontWeight.w600,
                     fontSize: 16,
                   ),
                 ),
-                Text(
-                  employee.position,
-                  style: TextStyle(
-                    color: Colors.black54,
-                    fontSize: 14,
+                if (email.isNotEmpty)
+                  Text(
+                    email,
+                    style: const TextStyle(
+                      color: Colors.black54,
+                      fontSize: 14,
+                    ),
                   ),
-                ),
-                Text(
-                  employee.department,
-                  style: TextStyle(
-                    color: const Color(0xFF25D366).withValues(alpha: 0.8),
-                    fontSize: 12,
+                if (phone.isNotEmpty)
+                  Text(
+                    phone,
+                    style: TextStyle(
+                      color: const Color(0xFF25D366).withValues(alpha: 0.8),
+                      fontSize: 12,
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -439,12 +621,12 @@ class AdminPage extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: _getEmployeeStatusColor(employee.status).withValues(alpha: 0.1),
+                color: _getEmployeeStatusColor(status).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
                 Icons.more_vert_rounded,
-                color: _getEmployeeStatusColor(employee.status),
+                color: _getEmployeeStatusColor(status),
                 size: 20,
               ),
             ),
@@ -561,40 +743,66 @@ class AdminPage extends StatelessWidget {
     }
   }
 
-  void _handleUserAction(BuildContext context, User user, String action, AppProvider appProvider) {
-    switch (action) {
-      case 'activate':
-        appProvider.updateUserStatus(user.id, 'active');
-        _showMessage(context, 'Utilisateur activé');
-        break;
-      case 'deactivate':
-        appProvider.updateUserStatus(user.id, 'inactive');
-        _showMessage(context, 'Utilisateur désactivé');
-        break;
-      case 'delete':
-        appProvider.deleteUser(user.id);
-        _showMessage(context, 'Utilisateur supprimé');
-        break;
+  void _handleUserAction(BuildContext context, String userId, String action, AppProvider appProvider) async {
+    final token = appProvider.accessToken;
+    if (token == null) {
+      if (!context.mounted) return;
+      _showMessage(context, 'Token manquant');
+      return;
+    }
+
+    try {
+      switch (action) {
+        case 'activate':
+          await ApiService.updateUserStatus(token, userId, 'active');
+          if (!context.mounted) return;
+          _showMessage(context, 'Utilisateur activé');
+          _loadAdminData(); // Recharger les données
+          break;
+        case 'deactivate':
+          await ApiService.updateUserStatus(token, userId, 'blocked');
+          if (!context.mounted) return;
+          _showMessage(context, 'Utilisateur désactivé');
+          _loadAdminData();
+          break;
+        case 'delete':
+          await ApiService.deleteUser(token, userId);
+          if (!context.mounted) return;
+          _showMessage(context, 'Utilisateur supprimé');
+          _loadAdminData();
+          break;
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      _showMessage(context, 'Erreur: $e');
     }
   }
 
-  void _handleEmployeeAction(BuildContext context, Employee employee, String action, AppProvider appProvider) {
+  void _handleEmployeeAction(BuildContext context, dynamic employee, String action, AppProvider appProvider) async {
+    final employeeId = employee['_id'] ?? employee['id'] ?? '';
+    final employeeName = employee['name'] ?? 'Employé';
+    
+    // Note: Backend routes for employee actions (promote/demote/transfer/terminate) 
+    // need to be implemented in server.js
+    if (!context.mounted) return;
+    
     switch (action) {
       case 'promote':
-        // Implement promotion logic
-        _showMessage(context, 'Employé promu');
+        debugPrint('Promote employee: $employeeId');
+        _showMessage(context, '$employeeName promu (fonctionnalité à implémenter)');
         break;
       case 'demote':
-        // Implement demotion logic
-        _showMessage(context, 'Employé rétrogradé');
+        debugPrint('Demote employee: $employeeId');
+        _showMessage(context, '$employeeName rétrogradé (fonctionnalité à implémenter)');
         break;
       case 'transfer':
-        // Implement transfer logic
-        _showMessage(context, 'Employé transféré');
+        debugPrint('Transfer employee: $employeeId');
+        _showMessage(context, '$employeeName transféré (fonctionnalité à implémenter)');
         break;
       case 'terminate':
-        appProvider.updateEmployeeStatus(employee.id, 'terminated');
-        _showMessage(context, 'Employé licencié');
+        debugPrint('Terminate employee: $employeeId');
+        // When backend route exists: await ApiService.updateEmployeeStatus(token, employeeId, 'terminated');
+        _showMessage(context, '$employeeName licencié (fonctionnalité à implémenter)');
         break;
     }
   }
