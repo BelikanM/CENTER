@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
+import 'dart:typed_data';
 import '../main.dart';
 import '../api_service.dart';
 
@@ -298,15 +300,22 @@ class _CreatePublicationPageState extends State<CreatePublicationPage> {
                       ),
                       itemCount: _mediaFiles.length,
                       itemBuilder: (context, index) {
+                        final file = _mediaFiles[index];
+                        final isVideo = file.path.toLowerCase().endsWith('.mp4') ||
+                            file.path.toLowerCase().endsWith('.mov') ||
+                            file.path.toLowerCase().endsWith('.avi');
+                        
                         return Stack(
                           fit: StackFit.expand,
                           children: [
                             ClipRRect(
                               borderRadius: BorderRadius.circular(8),
-                              child: Image.file(
-                                _mediaFiles[index],
-                                fit: BoxFit.cover,
-                              ),
+                              child: isVideo
+                                  ? _VideoPreviewWidget(file: file)
+                                  : Image.file(
+                                      file,
+                                      fit: BoxFit.cover,
+                                    ),
                             ),
                             Positioned(
                               top: 4,
@@ -394,6 +403,124 @@ class _CreatePublicationPageState extends State<CreatePublicationPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// Widget pour afficher une preview vidéo avec thumbnail
+class _VideoPreviewWidget extends StatefulWidget {
+  final File file;
+
+  const _VideoPreviewWidget({required this.file});
+
+  @override
+  State<_VideoPreviewWidget> createState() => _VideoPreviewWidgetState();
+}
+
+class _VideoPreviewWidgetState extends State<_VideoPreviewWidget> {
+  Uint8List? _thumbnailData;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _generateThumbnail();
+  }
+
+  Future<void> _generateThumbnail() async {
+    try {
+      debugPrint('🎬 Génération thumbnail local: ${widget.file.path}');
+      final uint8list = await VideoThumbnail.thumbnailData(
+        video: widget.file.path,
+        imageFormat: ImageFormat.JPEG,
+        maxWidth: 300,
+        quality: 75,
+      );
+      
+      if (mounted) {
+        setState(() {
+          _thumbnailData = uint8list;
+          _isLoading = false;
+        });
+        debugPrint('✅ Thumbnail local généré: ${uint8list?.length} bytes');
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur génération thumbnail local: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.black87,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Thumbnail ou fallback
+          if (_thumbnailData != null)
+            Image.memory(
+              _thumbnailData!,
+              fit: BoxFit.cover,
+            )
+          else if (_isLoading)
+            const Center(
+              child: CircularProgressIndicator(
+                color: Color(0xFF00D4FF),
+                strokeWidth: 2,
+              ),
+            )
+          else
+            const Center(
+              child: Icon(
+                Icons.video_library_rounded,
+                color: Colors.white54,
+                size: 48,
+              ),
+            ),
+          
+          // Overlay sombre
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.3),
+                ],
+              ),
+            ),
+          ),
+          
+          // Icône play
+          Center(
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF00D4FF).withValues(alpha: 0.9),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF00D4FF).withValues(alpha: 0.4),
+                    blurRadius: 12,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.play_arrow_rounded,
+                color: Colors.white,
+                size: 28,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

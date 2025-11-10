@@ -65,6 +65,7 @@ dependencies:
   # Video Player
   video_player: ^2.9.2
   webview_flutter: ^4.10.0
+  video_thumbnail: ^0.5.3
   
   # File Picker (audio, documents)
   file_picker: ^8.1.4

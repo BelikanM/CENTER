@@ -856,13 +856,19 @@ app.post('/api/publications', verifyToken, publicationUpload.array('media', 10),
 
   console.log('✅ Publication créée, ID:', pub._id);
   
+  // Transformer les URLs pour le WebSocket
+  const pubObj = pub.toObject();
+  if (pubObj.userId && pubObj.userId.profileImage && !pubObj.userId.profileImage.startsWith('http')) {
+    pubObj.userId.profileImage = `${BASE_URL}/${pubObj.userId.profileImage}`;
+  }
+  
   // Diffuser la nouvelle publication via WebSocket
   broadcastToAll({
     type: 'new_publication',
-    publication: pub
+    publication: pubObj
   });
   
-  res.status(201).json({ message: 'Publication créée', publication: pub });
+  res.status(201).json({ message: 'Publication créée', publication: pubObj });
 });
 
 app.get('/api/publications', verifyToken, async (req, res) => {

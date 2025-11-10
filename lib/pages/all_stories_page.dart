@@ -220,9 +220,22 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
     debugPrint('👤 Story user: ${user?['name']} / ${user?['email']} -> $userName');
     
     final profileImage = user?['profileImage'] as String? ?? '';
-    final storyImage = story['imageUrl'] ?? story['mediaUrl'] ?? '';
+    final mediaType = story['mediaType'] ?? story['type'] ?? 'text';
+    final mediaUrl = story['mediaUrl'] ?? '';
+    
+    // Pour les vidéos, utiliser l'image de profil comme preview
+    // Pour les images, utiliser l'image de la story
+    String storyImage = '';
+    if (mediaType == 'image' && mediaUrl.isNotEmpty) {
+      storyImage = mediaUrl;
+    } else if (mediaType == 'video' && profileImage.isNotEmpty) {
+      // Pour les vidéos, on utilise la photo de profil comme miniature
+      storyImage = profileImage;
+    }
+    
     final timeAgo = _formatTimeAgo(story['createdAt']);
     final isViewed = story['isViewed'] ?? false;
+    final backgroundColor = story['backgroundColor'] ?? '#00D4FF';
 
     return GestureDetector(
       onTap: () {
@@ -268,28 +281,49 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
             children: [
               // Image de fond
               storyImage.isNotEmpty
-                  ? Image.network(
-                      storyImage,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                const Color(0xFF00D4FF).withValues(alpha: 0.3),
-                                const Color(0xFF9C27B0).withValues(alpha: 0.3),
-                              ],
+                  ? Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.network(
+                          storyImage,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    const Color(0xFF00D4FF).withValues(alpha: 0.3),
+                                    const Color(0xFF9C27B0).withValues(alpha: 0.3),
+                                  ],
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.image_not_supported,
+                                color: Colors.white54,
+                                size: 48,
+                              ),
+                            );
+                          },
+                        ),
+                        // Icône play pour les vidéos
+                        if (mediaType == 'video')
+                          Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.6),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.play_arrow_rounded,
+                                color: Colors.white,
+                                size: 48,
+                              ),
                             ),
                           ),
-                          child: const Icon(
-                            Icons.image_not_supported,
-                            color: Colors.white54,
-                            size: 48,
-                          ),
-                        );
-                      },
+                      ],
                     )
                   : Container(
                       decoration: BoxDecoration(
@@ -297,7 +331,7 @@ class _AllStoriesPageState extends State<AllStoriesPage> {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            const Color(0xFF00D4FF).withValues(alpha: 0.5),
+                            Color(int.tryParse(backgroundColor.replaceAll('#', '0xFF')) ?? 0xFF00D4FF).withValues(alpha: 0.5),
                             const Color(0xFF9C27B0).withValues(alpha: 0.5),
                           ],
                         ),

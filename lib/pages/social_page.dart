@@ -93,15 +93,46 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
       if (message['type'] == 'new_comment') {
         _loadPublications();
       }
-      // Recharger aussi pour les nouvelles publications
+      // Ajouter directement la nouvelle publication en haut de la liste
       if (message['type'] == 'new_publication') {
-        _loadPublications();
+        debugPrint('🆕 Nouvelle publication reçue via WebSocket');
+        final publication = message['publication'];
+        if (publication != null && mounted) {
+          setState(() {
+            // Vérifier si la publication n'existe pas déjà
+            final existingIndex = _publications.indexWhere((p) => p['_id'] == publication['_id']);
+            if (existingIndex == -1) {
+              // Ajouter au début de la liste
+              _publications.insert(0, publication);
+              debugPrint('✅ Publication ajoutée en temps réel, total: ${_publications.length}');
+            } else {
+              debugPrint('⚠️ Publication déjà présente, mise à jour');
+              _publications[existingIndex] = publication;
+            }
+          });
+        }
       }
       // Recharger les stories quand une nouvelle est créée
       if (message['type'] == 'new_story') {
         _loadStories();
       }
     });
+  }
+
+  // Helper pour transformer les URLs relatives en URLs complètes
+  String _getFullUrl(String? url) {
+    if (url == null || url.isEmpty) return '';
+    
+    // Si l'URL commence déjà par http:// ou https://, la retourner telle quelle
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    
+    // Sinon, ajouter le baseUrl
+    final baseUrl = ApiService.baseUrl;
+    // Enlever le slash au début de l'URL si présent
+    final cleanUrl = url.startsWith('/') ? url.substring(1) : url;
+    return '$baseUrl/$cleanUrl';
   }
 
   Future<void> _loadPublications() async {
@@ -892,8 +923,14 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
                         // Déterminer l'URL de preview selon le type de story
                         String previewUrl = '';
                         final mediaType = story['mediaType'] ?? story['type'] ?? '';
-                        if (mediaType == 'image' || mediaType == 'video') {
+                        
+                        if (mediaType == 'image') {
+                          // Pour les images, utiliser l'image de la story
                           previewUrl = story['mediaUrl'] ?? '';
+                        } else if (mediaType == 'video') {
+                          // Pour les vidéos, utiliser l'image de profil de l'utilisateur comme preview
+                          final rawProfileImage = user?['profileImage'] as String? ?? '';
+                          previewUrl = _getFullUrl(rawProfileImage);
                         }
 
                         return Padding(
@@ -901,6 +938,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
                           child: _buildStoryBubble(
                             userName: userName,
                             previewUrl: previewUrl,
+                            mediaType: mediaType, // Passer le type de média
                             backgroundColor: mediaType == 'text' 
                                 ? Color(int.parse(story['backgroundColor']?.replaceAll('#', '0xFF') ?? '0xFF1A1A2E'))
                                 : null,
@@ -922,6 +960,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
   Widget _buildStoryBubble({
     required String userName,
     required String previewUrl,
+    String? mediaType, // Type de média: 'video', 'image', 'text'
     Color? backgroundColor,
     required bool hasViewed,
     required VoidCallback onTap,
@@ -960,24 +999,44 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
                     ],
                   ),
                   padding: const EdgeInsets.all(3),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: backgroundColor ?? const Color(0xFF1A1A2E),
-                      image: previewUrl.isNotEmpty
-                          ? DecorationImage(
-                              image: NetworkImage(previewUrl),
-                              fit: BoxFit.cover,
-                            )
-                          : null,
-                    ),
-                    child: previewUrl.isEmpty && backgroundColor == null
-                        ? const Icon(
-                            Icons.person,
-                            color: Colors.white54,
-                            size: 35,
-                          )
-                        : null,
+                  child: Stack(
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: backgroundColor ?? const Color(0xFF1A1A2E),
+                          image: previewUrl.isNotEmpty
+                              ? DecorationImage(
+                                  image: NetworkImage(previewUrl),
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
+                        ),
+                        child: previewUrl.isEmpty && backgroundColor == null
+                            ? const Icon(
+                                Icons.person,
+                                color: Colors.white54,
+                                size: 35,
+                              )
+                            : null,
+                      ),
+                      // Icône play pour les vidéos
+                      if (mediaType == 'video' && previewUrl.isNotEmpty)
+                        Center(
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.5),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.play_arrow_rounded,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 // TEMPORAIRE: Bouton de suppression TOUJOURS visible pour test
@@ -1143,14 +1202,17 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
             final comments = (pub['comments'] as List?)?.length ?? 0;
             final media = pub['media'] as List?;
             
-            // Gérer imageUrl (peut être String ou Map)
+            // Gérer imageUrl et mediaType (peut être String ou Map)
             String? imageUrl;
+            String? mediaType;
             if (media != null && media.isNotEmpty) {
               final firstMedia = media[0];
               if (firstMedia is String) {
                 imageUrl = firstMedia;
+                mediaType = 'image'; // Assumer image si string
               } else if (firstMedia is Map) {
                 imageUrl = firstMedia['url'] ?? firstMedia['path'];
+                mediaType = firstMedia['type'] ?? 'image'; // Récupérer le type
               }
             }
             
@@ -1191,6 +1253,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
                 comments: comments,
                 shares: 0, // Backend doesn't have shares yet
                 imageUrl: imageUrl,
+                mediaType: mediaType, // Passer le type de média
                 userAvatar: userAvatar,
                 onLike: () => _likePublication(publicationId),
                 onComment: () => _showCommentsDialog(publicationId, content),

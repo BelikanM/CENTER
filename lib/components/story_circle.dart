@@ -6,6 +6,8 @@ class StoryCircle extends StatelessWidget {
   final bool isOwn;
   final bool hasStory;
   final VoidCallback onTap;
+  final String? mediaUrl; // URL de la vidéo ou image de la story
+  final String? mediaType; // 'video', 'image', ou 'text'
 
   const StoryCircle({
     super.key,
@@ -14,10 +16,25 @@ class StoryCircle extends StatelessWidget {
     required this.isOwn,
     required this.hasStory,
     required this.onTap,
+    this.mediaUrl,
+    this.mediaType,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Déterminer quelle image afficher en fond
+    String backgroundImage = imageUrl;
+    
+    // Si c'est une story avec une image, utiliser l'image de la story
+    if (hasStory && !isOwn && mediaType == 'image' && mediaUrl != null && mediaUrl!.isNotEmpty) {
+      backgroundImage = mediaUrl!;
+    }
+    // Si c'est une vidéo, on pourrait extraire un thumbnail mais pour l'instant on garde le profile
+    else if (hasStory && !isOwn && mediaType == 'video') {
+      // On garde l'image de profil pour les vidéos
+      backgroundImage = imageUrl;
+    }
+
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -48,20 +65,33 @@ class StoryCircle extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: const Color(0xFF2A2A2A),
-                    image: imageUrl.isNotEmpty
+                    image: backgroundImage.isNotEmpty
                         ? DecorationImage(
-                            image: NetworkImage(imageUrl),
+                            image: NetworkImage(backgroundImage),
                             fit: BoxFit.cover,
                           )
                         : null,
                   ),
-                  child: imageUrl.isEmpty
+                  child: backgroundImage.isEmpty
                       ? Icon(
                           Icons.person_rounded,
                           color: Colors.white.withValues(alpha: 0.7),
                           size: 32,
                         )
-                      : null,
+                      : mediaType == 'video' && hasStory && !isOwn
+                          // Icône play pour les vidéos
+                          ? Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.black.withValues(alpha: 0.3),
+                              ),
+                              child: const Icon(
+                                Icons.play_arrow_rounded,
+                                color: Colors.white,
+                                size: 28,
+                              ),
+                            )
+                          : null,
                 ),
               ),
               if (isOwn)

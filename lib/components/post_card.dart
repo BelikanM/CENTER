@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
+import 'dart:typed_data';
 import 'futuristic_card.dart';
+import 'media_player.dart';
 
 class PostCard extends StatefulWidget {
   final String userName;
@@ -12,6 +15,7 @@ class PostCard extends StatefulWidget {
   final int shares;
   final String? imageUrl;
   final String? userAvatar;
+  final String? mediaType; // 'image' ou 'video'
   final VoidCallback onLike;
   final VoidCallback onComment;
   final VoidCallback onShare;
@@ -31,6 +35,7 @@ class PostCard extends StatefulWidget {
     required this.shares,
     this.imageUrl,
     this.userAvatar,
+    this.mediaType,
     required this.onLike,
     required this.onComment,
     required this.onShare,
@@ -80,7 +85,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
         children: [
           _buildHeader(),
           _buildContent(),
-          if (widget.imageUrl != null) _buildImage(),
+          if (widget.imageUrl != null) _buildMedia(),
           _buildActions(),
         ],
       ),
@@ -220,7 +225,24 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildImage() {
+  Widget _buildMedia() {
+    // Si c'est une vidéo, ouvrir une dialog plein écran avec MediaPlayer
+    if (widget.mediaType == 'video') {
+      return GestureDetector(
+        onTap: () {
+          _showVideoPlayer(context, widget.imageUrl!);
+        },
+        child: Container(
+          margin: const EdgeInsets.only(top: 16),
+          child: _VideoThumbnailWidget(
+            videoUrl: widget.imageUrl!,
+            content: widget.content,
+          ),
+        ),
+      );
+    }
+    
+    // Sinon, afficher l'image normalement
     return Container(
       margin: const EdgeInsets.only(top: 16),
       child: ClipRRect(
@@ -250,6 +272,102 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
               size: 50,
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  void _showVideoPlayer(BuildContext context, String videoUrl) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.95),
+      builder: (dialogContext) => Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: Stack(
+          children: [
+            // MediaPlayer comme dans les stories
+            Center(
+              child: MediaPlayer(
+                url: videoUrl,
+                type: MediaType.video,
+                autoPlay: true,
+                loop: false,
+                showControls: true,
+                aspectRatio: 9 / 16,
+                onFinished: () {
+                  debugPrint('✅ Vidéo terminée');
+                },
+                onError: () {
+                  debugPrint('❌ Erreur lecture vidéo');
+                },
+              ),
+            ),
+            
+            // Caption overlay si présent
+            if (widget.content.isNotEmpty)
+              Positioned(
+                bottom: 100,
+                left: 0,
+                right: 0,
+                child: Container(
+                  margin: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.8),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    widget.content,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      height: 1.4,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black,
+                          blurRadius: 8,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            
+            // Bouton fermer
+            Positioned(
+              top: 40,
+              right: 16,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => Navigator.pop(dialogContext),
+                  borderRadius: BorderRadius.circular(30),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -412,6 +530,173 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
         Navigator.pop(context);
         onTap();
       },
+    );
+  }
+}
+
+// Widget pour afficher un thumbnail vidéo avec icône play
+class _VideoThumbnailWidget extends StatefulWidget {
+  final String videoUrl;
+  final String content;
+
+  const _VideoThumbnailWidget({
+    required this.videoUrl,
+    required this.content,
+  });
+
+  @override
+  State<_VideoThumbnailWidget> createState() => _VideoThumbnailWidgetState();
+}
+
+class _VideoThumbnailWidgetState extends State<_VideoThumbnailWidget> {
+  Uint8List? _thumbnailData;
+  bool _isLoading = true;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _generateThumbnail();
+  }
+
+  Future<void> _generateThumbnail() async {
+    try {
+      debugPrint('🎬 Génération thumbnail pour: ${widget.videoUrl}');
+      final uint8list = await VideoThumbnail.thumbnailData(
+        video: widget.videoUrl,
+        imageFormat: ImageFormat.JPEG,
+        maxWidth: 720,
+        quality: 75,
+      );
+      
+      if (mounted) {
+        setState(() {
+          _thumbnailData = uint8list;
+          _isLoading = false;
+        });
+        debugPrint('✅ Thumbnail généré: ${uint8list?.length} bytes');
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur génération thumbnail: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(
+        bottom: Radius.circular(20),
+      ),
+      child: Container(
+        width: double.infinity,
+        height: 200,
+        color: Colors.black87,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Thumbnail en fond
+            if (_thumbnailData != null)
+              Image.memory(
+                _thumbnailData!,
+                fit: BoxFit.cover,
+              )
+            else if (_isLoading)
+              const Center(
+                child: CircularProgressIndicator(
+                  color: Color(0xFF00FF88),
+                ),
+              )
+            else if (_hasError)
+              const Center(
+                child: Icon(
+                  Icons.video_library_rounded,
+                  color: Colors.white54,
+                  size: 80,
+                ),
+              ),
+            
+            // Overlay sombre
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.3),
+                  ],
+                ),
+              ),
+            ),
+            
+            // Icône play centrée
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00FF88).withValues(alpha: 0.9),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF00FF88).withValues(alpha: 0.4),
+                      blurRadius: 16,
+                      spreadRadius: 4,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.play_arrow_rounded,
+                  color: Colors.black,
+                  size: 40,
+                ),
+              ),
+            ),
+            
+            // Badge "VIDÉO" en haut à gauche
+            Positioned(
+              top: 12,
+              left: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: const Color(0xFF00FF88),
+                    width: 1.5,
+                  ),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.play_circle_filled,
+                      color: Color(0xFF00FF88),
+                      size: 16,
+                    ),
+                    SizedBox(width: 6),
+                    Text(
+                      'VIDÉO',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

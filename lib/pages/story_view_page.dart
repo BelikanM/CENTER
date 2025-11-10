@@ -555,7 +555,22 @@ class _StoryViewPageState extends State<StoryViewPage> {
           ),
           if (_isOwner(story))
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, color: Colors.white),
+              icon: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.more_vert,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              color: const Color(0xFF2A2A2E),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               onSelected: (value) {
                 if (value == 'delete') {
                   _showDeleteConfirmation(_currentStoryIndex);
@@ -568,7 +583,7 @@ class _StoryViewPageState extends State<StoryViewPage> {
                     children: [
                       Icon(Icons.delete, color: Colors.red),
                       SizedBox(width: 8),
-                      Text('Supprimer'),
+                      Text('Supprimer', style: TextStyle(color: Colors.white)),
                     ],
                   ),
                 ),
@@ -576,7 +591,18 @@ class _StoryViewPageState extends State<StoryViewPage> {
             )
           else
             IconButton(
-              icon: const Icon(Icons.close, color: Colors.white),
+              icon: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.close,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
               onPressed: () => Navigator.pop(context),
             ),
         ],

@@ -267,16 +267,39 @@ class _SavedPublicationsPageState extends State<SavedPublicationsPage> {
     );
   }
 
-  Widget _buildMediaItem(String mediaUrl) {
-    final isVideo = mediaUrl.toLowerCase().contains('.mp4') ||
-        mediaUrl.toLowerCase().contains('.mov') ||
-        mediaUrl.toLowerCase().contains('.avi') ||
-        mediaUrl.toLowerCase().contains('.mkv') ||
-        mediaUrl.toLowerCase().contains('.webm');
+  Widget _buildMediaItem(dynamic mediaItem) {
+    // Le media peut être String ou Map
+    String mediaUrl;
+    String mediaType = 'image'; // Par défaut image
+    
+    if (mediaItem is String) {
+      mediaUrl = mediaItem;
+      // Deviner le type depuis l'extension
+      if (mediaUrl.toLowerCase().contains('.mp4') ||
+          mediaUrl.toLowerCase().contains('.mov') ||
+          mediaUrl.toLowerCase().contains('.avi') ||
+          mediaUrl.toLowerCase().contains('.mkv') ||
+          mediaUrl.toLowerCase().contains('.webm')) {
+        mediaType = 'video';
+      }
+    } else if (mediaItem is Map) {
+      mediaUrl = mediaItem['url'] ?? '';
+      mediaType = mediaItem['type'] ?? 'image'; // Utiliser le type du backend
+    } else {
+      return Container(
+        color: Colors.grey[800],
+        child: const Center(
+          child: Text(
+            'Format de média invalide',
+            style: TextStyle(color: Colors.white54),
+          ),
+        ),
+      );
+    }
 
     return Container(
       color: Colors.black,
-      child: isVideo
+      child: mediaType == 'video'
           ? _buildVideoPlayer(mediaUrl)
           : Image.network(
               mediaUrl,
