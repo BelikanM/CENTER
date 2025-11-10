@@ -155,6 +155,7 @@ class _CreateStoryPageState extends State<CreateStoryPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: _mediaType == 'text' ? _backgroundColor : Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.transparent,

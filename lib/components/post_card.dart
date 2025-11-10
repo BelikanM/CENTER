@@ -19,6 +19,7 @@ class PostCard extends StatefulWidget {
   final VoidCallback onLike;
   final VoidCallback onComment;
   final VoidCallback onShare;
+  final VoidCallback? onVideoTap; // Callback pour ouvrir le mode Trends
   final bool isSaved;
   final VoidCallback? onSave;
   final VoidCallback? onDelete;
@@ -39,6 +40,7 @@ class PostCard extends StatefulWidget {
     required this.onLike,
     required this.onComment,
     required this.onShare,
+    this.onVideoTap,
     this.isSaved = false,
     this.onSave,
     this.onDelete,
@@ -226,17 +228,44 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
   }
 
   Widget _buildMedia() {
-    // Si c'est une vidéo, ouvrir une dialog plein écran avec MediaPlayer
+    // Si c'est une vidéo, ouvrir le mode Trends au tap
     if (widget.mediaType == 'video') {
       return GestureDetector(
         onTap: () {
-          _showVideoPlayer(context, widget.imageUrl!);
+          // Si onVideoTap est défini, l'utiliser (mode Trends)
+          if (widget.onVideoTap != null) {
+            widget.onVideoTap!();
+          } else {
+            // Sinon, ouvrir l'ancien lecteur vidéo
+            _showVideoPlayer(context, widget.imageUrl!);
+          }
         },
         child: Container(
           margin: const EdgeInsets.only(top: 16),
-          child: _VideoThumbnailWidget(
-            videoUrl: widget.imageUrl!,
-            content: widget.content,
+          child: Stack(
+            children: [
+              _VideoThumbnailWidget(
+                videoUrl: widget.imageUrl!,
+                content: widget.content,
+              ),
+              // Icône play au centre
+              Positioned.fill(
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.play_arrow,
+                      color: Colors.white,
+                      size: 40,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       );

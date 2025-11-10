@@ -11,6 +11,7 @@ import 'all_stories_page.dart';
 import 'create_story_page.dart';
 import 'story_view_page.dart';
 import 'saved_publications_page.dart';
+import 'trends_page.dart';
 
 class SocialPage extends StatefulWidget {
   const SocialPage({super.key});
@@ -266,6 +267,42 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
     } catch (e) {
       debugPrint('Erreur like publication: $e');
     }
+  }
+
+  // Ouvrir le mode Trends (TikTok-like) avec toutes les vidéos
+  void _openTrendsMode(int initialIndex) {
+    // Filtrer uniquement les publications avec des vidéos
+    final videoPublications = _publications.where((pub) {
+      final mediaType = pub['mediaType'];
+      return mediaType == 'video';
+    }).map((pub) => pub as Map<String, dynamic>).toList();
+
+    if (videoPublications.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Aucune vidéo disponible'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // Trouver l'index de la vidéo cliquée dans la liste filtrée
+    final clickedPubId = _publications[initialIndex]['_id'];
+    final videoIndex = videoPublications.indexWhere((pub) => pub['_id'] == clickedPubId);
+    
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TrendsPage(
+          videos: videoPublications,
+          initialIndex: videoIndex >= 0 ? videoIndex : 0,
+        ),
+      ),
+    ).then((_) {
+      // Recharger les publications au retour (pour les likes/commentaires)
+      _loadPublications();
+    });
   }
 
   Future<void> _loadSavedPublications() async {
@@ -1173,6 +1210,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
                 onLike: () => _likePublication(publicationId),
                 onComment: () => _showCommentsDialog(publicationId, content),
                 onShare: () => _sharePublication(publicationId),
+                onVideoTap: mediaType == 'video' ? () => _openTrendsMode(index) : null, // Mode Trends pour les vidéos
                 isSaved: _savedPublicationIds.contains(publicationId),
                 onSave: () => _toggleSavePublication(publicationId),
                 isOwner: isOwner,

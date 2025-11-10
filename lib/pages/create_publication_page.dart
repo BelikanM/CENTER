@@ -191,6 +191,7 @@ class _CreatePublicationPageState extends State<CreatePublicationPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: const Color(0xFF00D4FF),

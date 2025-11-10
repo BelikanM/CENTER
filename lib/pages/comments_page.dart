@@ -365,6 +365,7 @@ class _CommentsPageState extends State<CommentsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: const Color(0xFF00D4FF),
@@ -761,20 +762,21 @@ class _CommentsPageState extends State<CommentsPage> {
   }
 
   Widget _buildMessageInput() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.shade300,
-            offset: const Offset(0, -1),
-            blurRadius: 4,
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+    return SafeArea(
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.shade300,
+              offset: const Offset(0, -1),
+              blurRadius: 4,
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
           // Mode Édition
           if (_editingCommentId != null)
             Container(
@@ -956,6 +958,7 @@ class _CommentsPageState extends State<CommentsPage> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
