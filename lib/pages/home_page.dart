@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'dart:math' show Random;
 import '../main.dart';
 import '../components/futuristic_card.dart';
 import '../components/stats_card.dart';
 import '../components/quick_action_card.dart';
 import '../components/aquatic_background.dart';
+import '../utils/video_manager.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -18,22 +18,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
   late String _selectedVideo;
-
-  // Liste des vidéos optimales (< 10 MB)
-  static const List<String> _aquaticVideos = [
-    'assets/videos/aquarium_1.mp4',   // 2.94 MB, 5s
-    'assets/videos/aquarium_8.mp4',   // 1.03 MB, 9s
-    'assets/videos/aquarium_9.mp4',   // 1.27 MB, 16s
-    'assets/videos/aquarium_10.mp4',  // 1.58 MB, 21s
-    'assets/videos/aquarium_11.mp4',  // 1.56 MB, 23s
-    'assets/videos/aquarium_7.mp4',   // 3.22 MB, 41s
-  ];
+  final VideoManager _videoManager = VideoManager();
 
   @override
   void initState() {
     super.initState();
-    // Sélectionner une vidéo aléatoire au démarrage
-    _selectedVideo = _aquaticVideos[Random().nextInt(_aquaticVideos.length)];
+    // Sélectionner une vidéo longue pour l'accueil
+    _selectedVideo = _videoManager.getHomePageVideo();
     
     _pulseController = AnimationController(
       duration: const Duration(seconds: 3),

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'dart:math' show Random;
 import '../main.dart';
 import '../api_service.dart';
 import '../components/post_card.dart';
 import '../components/story_circle.dart';
 import '../components/aquatic_background.dart';
+import '../utils/video_manager.dart';
 import 'create_publication_page.dart';
 import 'map_view_page.dart';
 import 'comments_page.dart';
@@ -28,14 +28,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
   late Animation<double> _fabAnimation;
   bool _showFab = true;
   late String _selectedVideo;
-
-  // Liste de vidéos dynamiques pour le réseau social
-  static const List<String> _socialVideos = [
-    'assets/videos/aquarium_8.mp4',   // 1.03 MB, 9s - Légère
-    'assets/videos/aquarium_9.mp4',   // 1.27 MB, 16s - Fluide
-    'assets/videos/aquarium_3.mp4',   // 8.67 MB, 15s - Dynamique
-    'assets/videos/aquarium_12.mp4',  // 3.27 MB, 12s - Vivante
-  ];
+  final VideoManager _videoManager = VideoManager();
 
   // État de chargement et données depuis l'API
   bool _isLoading = false;
@@ -53,8 +46,8 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     
-    // Sélectionner une vidéo dynamique aléatoire
-    _selectedVideo = _socialVideos[Random().nextInt(_socialVideos.length)];
+    // Sélectionner une vidéo dynamique pour le réseau social
+    _selectedVideo = _videoManager.getSocialPageVideo();
     
     _fabAnimationController = AnimationController(
       duration: const Duration(milliseconds: 300),

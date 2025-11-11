@@ -6,6 +6,8 @@ import '../main.dart';
 import '../api_service.dart';
 import '../components/futuristic_card.dart';
 import '../components/gradient_button.dart';
+import '../components/aquatic_background.dart';
+import '../utils/video_manager.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -20,10 +22,13 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _isLoadingStats = false;
   bool _isUploadingImage = false;
   final ImagePicker _picker = ImagePicker();
+  late String _selectedVideo;
+  final VideoManager _videoManager = VideoManager();
 
   @override
   void initState() {
     super.initState();
+    _selectedVideo = _videoManager.getProfilePageVideo(); // Vidéo ultra-légère
     _loadUserStats();
   }
 
@@ -389,10 +394,15 @@ class _ProfilePageState extends State<ProfilePage> {
         final user = appProvider.currentUser;
 
         return Scaffold(
-          backgroundColor: Colors.white,
-          body: SafeArea(
-            bottom: false, // Ne pas appliquer SafeArea en bas
-            child: ListView(
+          body: AquaticBackground(
+            videoSource: _selectedVideo,
+            isAsset: true,
+            opacity: 0.15, // Léger pour page personnelle
+            withGradient: true,
+            gradientColor: Colors.white,
+            child: SafeArea(
+              bottom: false, // Ne pas appliquer SafeArea en bas
+              child: ListView(
               padding: EdgeInsets.only(
                 left: 20,
                 right: 20,
@@ -409,6 +419,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   _buildLogoutButton(context, appProvider),
                 ],
               ),
+            ),
           ),
         );
       },

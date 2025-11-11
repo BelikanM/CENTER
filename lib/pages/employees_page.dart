@@ -6,8 +6,10 @@ import 'package:provider/provider.dart';
 import '../components/futuristic_card.dart';
 import '../components/employee_card.dart';
 import '../components/department_chip.dart';
+import '../components/aquatic_background.dart';
 import '../api_service.dart';
 import '../main.dart';
+import '../utils/video_manager.dart';
 import 'employees/employee_detail_page.dart';
 import 'employees/department_employees_page.dart';
 import 'total_employees_page.dart';
@@ -34,6 +36,8 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
   List<Map<String, dynamic>> _employees = [];
   bool _isLoading = false;
   StreamSubscription? _webSocketSubscription;
+  late String _selectedVideo;
+  final VideoManager _videoManager = VideoManager();
 
   final List<String> _departments = [
     'Tous',
@@ -64,6 +68,7 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _tabController = TabController(length: 3, vsync: this);
+    _selectedVideo = _videoManager.getEmployeesPageVideo(); // Vidéo professionnelle
     _loadEmployees();
     _listenToWebSocket();
   }
@@ -149,17 +154,12 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment.topRight,
-            radius: 1.5,
-            colors: [
-              Color(0xFF1A0033),
-              Color(0xFF000000),
-            ],
-          ),
-        ),
+      body: AquaticBackground(
+        videoSource: _selectedVideo,
+        isAsset: true,
+        opacity: 0.1, // Très subtil pour environnement professionnel
+        withGradient: true,
+        gradientColor: const Color(0xFF1A0033),
         child: SafeArea(
           bottom: false, // Ne pas appliquer SafeArea en bas, on le gère manuellement
           child: Column(
