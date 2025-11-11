@@ -859,7 +859,12 @@ class _CommentsPageState extends State<CommentsPage> {
 
           // Input
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: EdgeInsets.only(
+              left: 8,
+              right: 8,
+              top: 8,
+              bottom: 8 + MediaQuery.of(context).padding.bottom, // Ajouter padding système
+            ),
             child: Row(
               children: [
                 // Bouton médias

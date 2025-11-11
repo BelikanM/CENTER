@@ -64,17 +64,12 @@ const BASE_URL = `http://${SERVER_IP}:${process.env.PORT || 5000}`;
 console.log(`🌐 URL de base du serveur: ${BASE_URL}`);
 
 // ========================================
-// MIDDLEWARE - CORRECTION AUTOMATIQUE DES URLs
+// MIDDLEWARE - CORRECTION AUTOMATIQUE DES URLs (SOLUTION INTELLIGENTE)
 // ========================================
 
-// Liste des anciennes IPs connues à remplacer
-const OLD_IPS = [
-  '192.168.1.98',
-  '192.168.43.1',
-  '10.0.2.2',
-  'localhost',
-  '127.0.0.1'
-];
+console.log('\n🔧 Configuration du middleware de correction d\'URLs INTELLIGENTE');
+console.log(`📍 IP actuelle du serveur: ${SERVER_IP}`);
+console.log(`✅ TOUTES les anciennes IPs réseau seront automatiquement remplacées\n`);
 
 // Middleware pour corriger automatiquement toutes les URLs dans les réponses
 app.use((req, res, next) => {
@@ -84,14 +79,45 @@ app.use((req, res, next) => {
     // Fonction récursive pour remplacer les URLs dans un objet
     const replaceUrls = (obj) => {
       if (typeof obj === 'string') {
-        // Remplacer toutes les anciennes IPs par la nouvelle
         let result = obj;
-        OLD_IPS.forEach(oldIp => {
-          const oldUrlPattern = new RegExp(`http://${oldIp.replace(/\./g, '\\.')}:5000`, 'g');
-          result = result.replace(oldUrlPattern, BASE_URL);
+        
+        // ✅ REGEX INTELLIGENTE : Remplace TOUTES les IPs privées (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+        // Pattern pour détecter n'importe quelle IP dans une URL
+        const ipUrlPattern = /http:\/\/((?:192\.168\.\d{1,3}\.\d{1,3})|(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3})|(?:172\.(?:1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3})|localhost|127\.0\.0\.1)(?::(\d+))?/g;
+        
+        // Remplacer toutes les URLs avec d'anciennes IPs
+        result = result.replace(ipUrlPattern, (match, ip, port) => {
+          // Si c'est déjà la bonne IP, ne rien changer
+          if (ip === SERVER_IP) {
+            return match;
+          }
+          
+          // Sinon, remplacer par la nouvelle IP
+          const newPort = port || '5000';
+          const newUrl = `http://${SERVER_IP}:${newPort}`;
+          
+          // Log de la correction (désactiver en production pour performance)
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`🔄 Correction URL: ${ip} → ${SERVER_IP}`);
+          }
+          
+          return newUrl;
         });
+        
         // Corriger les URLs mal formées (file:///)
-        result = result.replace(/^file:\/\/\//g, `${BASE_URL}/`);
+        if (result.startsWith('file:///')) {
+          result = result.replace(/^file:\/\/\//g, `${BASE_URL}/`);
+        }
+        
+        // ✅ NOUVEAU : Convertir les chemins relatifs uploads/* en URLs complètes
+        // Vérifier si c'est un chemin relatif qui commence par 'uploads/'
+        if (result.startsWith('uploads/') && !result.startsWith('http://') && !result.startsWith('https://')) {
+          result = `${BASE_URL}/${result}`;
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`🔄 Conversion chemin relatif: uploads/* → ${BASE_URL}/uploads/*`);
+          }
+        }
+        
         return result;
       } else if (Array.isArray(obj)) {
         return obj.map(item => replaceUrls(item));
@@ -644,10 +670,10 @@ app.post('/api/auth/verify-otp', async (req, res) => {
     accessToken,
     refreshToken,
     user: { 
-      _id: user._id.toString(), // Ajout de l'ID utilisateur
+      _id: user._id.toString(),
       email: user.email, 
       name: user.name, 
-      profileImage: user.profileImage ? `${BASE_URL}/${user.profileImage}` : '', 
+      profileImage: user.profileImage, 
       status: user.status 
     }
   });
@@ -712,10 +738,10 @@ app.post('/api/auth/admin-login', async (req, res) => {
       accessToken,
       refreshToken,
       user: { 
-        _id: user._id.toString(), // Ajout de l'ID utilisateur
+        _id: user._id.toString(),
         email: user.email, 
         name: user.name, 
-        profileImage: user.profileImage ? `${BASE_URL}/${user.profileImage}` : '', 
+        profileImage: user.profileImage, 
         status: user.status 
       }
     });
@@ -739,12 +765,7 @@ app.get('/api/user/profile', verifyToken, async (req, res) => {
     const user = await User.findById(req.user.userId).select('-password');
     if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé' });
 
-    const userWithUrl = {
-      ...user.toObject(),
-      profileImage: user.profileImage ? `${BASE_URL}/${user.profileImage}` : ''
-    };
-
-    res.json({ user: userWithUrl });
+    res.json({ user: user.toObject() });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Erreur serveur' });
@@ -762,18 +783,16 @@ app.put('/api/user/update-name', verifyToken, async (req, res) => {
     user.name = name.trim();
     await user.save();
 
-    const userWithUrl = {
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      profileImage: user.profileImage ? `${BASE_URL}/${user.profileImage}` : '',
-      createdAt: user.createdAt
-    };
-
     res.json({ 
       message: 'Nom mis à jour', 
-      user: userWithUrl 
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        profileImage: user.profileImage,
+        createdAt: user.createdAt
+      }
     });
   } catch (err) {
     console.error(err);
@@ -802,7 +821,7 @@ app.put('/api/user/change-password', verifyToken, async (req, res) => {
       name: user.name,
       email: user.email,
       role: user.role,
-      profileImage: user.profileImage ? `${BASE_URL}/${user.profileImage}` : '',
+      profileImage: user.profileImage,
       createdAt: user.createdAt
     };
 
@@ -829,11 +848,11 @@ app.post('/api/user/upload-profile-image', verifyToken, upload.single('profileIm
 
     // Supprimer l'ancienne image si elle existe
     if (user.profileImage) {
-      const oldPath = path.join(__dirname, user.profileImage);
+      const oldPath = path.join(__dirname, user.profileImage.replace(`${BASE_URL}/`, ''));
       if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
     }
 
-    user.profileImage = req.file.path.replace(/\\/g, '/');
+    user.profileImage = `${BASE_URL}/${req.file.path.replace(/\\/g, '/')}`;
     await user.save();
 
     const userWithUrl = {
@@ -841,7 +860,7 @@ app.post('/api/user/upload-profile-image', verifyToken, upload.single('profileIm
       name: user.name,
       email: user.email,
       role: user.role,
-      profileImage: `${BASE_URL}/${user.profileImage}`,
+      profileImage: user.profileImage,
       createdAt: user.createdAt
     };
 
@@ -862,7 +881,7 @@ app.delete('/api/user/delete-profile-image', verifyToken, async (req, res) => {
     if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé' });
 
     if (user.profileImage) {
-      const imagePath = path.join(__dirname, user.profileImage);
+      const imagePath = path.join(__dirname, user.profileImage.replace(`${BASE_URL}/`, ''));
       if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
       user.profileImage = '';
       await user.save();
@@ -938,11 +957,7 @@ app.post('/api/publications', verifyToken, publicationUpload.array('media', 10),
 
   console.log('✅ Publication créée, ID:', pub._id);
   
-  // Transformer les URLs pour le WebSocket
   const pubObj = pub.toObject();
-  if (pubObj.userId && pubObj.userId.profileImage && !pubObj.userId.profileImage.startsWith('http')) {
-    pubObj.userId.profileImage = `${BASE_URL}/${pubObj.userId.profileImage}`;
-  }
   
   // Diffuser la nouvelle publication via WebSocket
   broadcastToAll({
@@ -968,28 +983,14 @@ app.get('/api/publications', verifyToken, async (req, res) => {
     .skip(skip)
     .limit(limit);
 
-  // Transformer les données pour ajouter l'URL complète des avatars
-  const publicationsWithFullUrls = publications.map(pub => {
-    const pubObj = pub.toObject();
-    console.log('📸 Publication userId:', pubObj.userId);
-    if (pubObj.userId) {
-      console.log('  - name:', pubObj.userId.name);
-      console.log('  - email:', pubObj.userId.email);
-      console.log('  - profileImage original:', pubObj.userId.profileImage);
-      
-      if (pubObj.userId.profileImage && !pubObj.userId.profileImage.startsWith('http')) {
-        pubObj.userId.profileImage = `${BASE_URL}/${pubObj.userId.profileImage}`;
-        console.log('  ✅ profileImage transformé:', pubObj.userId.profileImage);
-      }
-    }
-    return pubObj;
-  });
+  // ✅ NE PAS transformer les URLs ici - le middleware le fera automatiquement
+  const publicationsData = publications.map(pub => pub.toObject());
 
   const total = await Publication.countDocuments({ isActive: true });
 
   console.log('✅ Publications trouvées:', publications.length, '/', total);
   res.json({
-    publications: publicationsWithFullUrls,
+    publications: publicationsData,
     pagination: { currentPage: page, totalPages: Math.ceil(total / limit), total }
   });
 });
@@ -999,18 +1000,10 @@ app.get('/api/publications/user/:userId', verifyToken, async (req, res) => {
     .populate('userId', 'name email profileImage')
     .sort({ createdAt: -1 });
   
-  // Transformer les données pour ajouter l'URL complète des avatars
-  const publicationsWithFullUrls = publications.map(pub => {
-    const pubObj = pub.toObject();
-    if (pubObj.userId) {
-      if (pubObj.userId.profileImage && !pubObj.userId.profileImage.startsWith('http')) {
-        pubObj.userId.profileImage = `${BASE_URL}/${pubObj.userId.profileImage}`;
-      }
-    }
-    return pubObj;
-  });
+  // ✅ NE PAS transformer les URLs ici - le middleware le fera automatiquement
+  const publicationsData = publications.map(pub => pub.toObject());
   
-  res.json({ publications: publicationsWithFullUrls });
+  res.json({ publications: publicationsData });
 });
 
 app.get('/api/publications/:id', verifyToken, async (req, res) => {
@@ -1124,31 +1117,10 @@ app.get('/api/users/saved-publications', verifyToken, async (req, res) => {
     
     if (!user) return res.status(404).json({ message: 'Utilisateur non trouvé' });
     
-    const pubsWithUrls = user.savedPublications.filter(pub => pub !== null).map(pub => ({
-      ...pub.toObject(),
-      userId: pub.userId ? {
-        ...pub.userId.toObject(),
-        profileImage: pub.userId.profileImage ? `${BASE_URL}/${pub.userId.profileImage}` : ''
-      } : null,
-      // ✅ CORRECTION: Garder la structure media complète avec type, url, filename
-      media: pub.media ? pub.media.map(m => {
-        if (typeof m === 'string') {
-          // Si c'est déjà une string, ajouter BASE_URL
-          return m.startsWith('http') ? m : `${BASE_URL}/${m}`;
-        } else if (m && typeof m === 'object') {
-          // Si c'est un objet, retourner l'objet complet avec URL corrigée
-          return {
-            type: m.type,
-            url: m.url && m.url.startsWith('http') ? m.url : `${BASE_URL}/${m.url || ''}`,
-            filename: m.filename || '',
-            _id: m._id
-          };
-        }
-        return m;
-      }) : []
-    }));
+    // ✅ NE PAS transformer les URLs ici - le middleware le fera automatiquement
+    const pubsFiltered = user.savedPublications.filter(pub => pub !== null).map(pub => pub.toObject());
     
-    res.json({ publications: pubsWithUrls });
+    res.json({ publications: pubsFiltered });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Erreur serveur' });
@@ -1162,15 +1134,9 @@ app.get('/api/publications/:id/comments', verifyToken, async (req, res) => {
       .populate('comments.userId', 'name email profileImage');
     if (!pub || !pub.isActive) return res.status(404).json({ message: 'Publication non trouvée' });
 
-    const commentsWithUrls = pub.comments.map(comment => ({
-      ...comment.toObject(),
-      userId: comment.userId ? {
-        ...comment.userId.toObject(),
-        profileImage: comment.userId.profileImage ? `${BASE_URL}/${comment.userId.profileImage}` : ''
-      } : null
-    }));
+    const comments = pub.comments.map(comment => comment.toObject());
 
-    res.json({ comments: commentsWithUrls });
+    res.json({ comments });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Erreur serveur' });
@@ -1192,27 +1158,8 @@ app.get('/api/publications/:id/comments', verifyToken, async (req, res) => {
       return res.status(404).json({ message: 'Publication non trouvée' });
     }
 
-    // Formatter les commentaires avec les URLs complètes
-    const formattedComments = pub.comments.map(comment => ({
-      _id: comment._id,
-      userId: comment.userId ? {
-        _id: comment.userId._id,
-        name: comment.userId.name,
-        email: comment.userId.email,
-        profileImage: comment.userId.profileImage ? `${BASE_URL}/${comment.userId.profileImage}` : ''
-      } : null,
-      content: comment.content,
-      media: comment.media?.map(m => ({
-        type: m.type,
-        url: `${BASE_URL}/${m.url}`,
-        duration: m.duration
-      })) || [],
-      replyTo: comment.replyTo,
-      likes: comment.likes,
-      isEdited: comment.isEdited,
-      createdAt: comment.createdAt,
-      updatedAt: comment.updatedAt
-    }));
+    // ✅ NE PAS transformer les URLs ici - le middleware le fera automatiquement
+    const formattedComments = pub.comments.map(comment => comment.toObject());
 
     res.json({ comments: formattedComments });
   } catch (e) {
@@ -1255,9 +1202,9 @@ app.post('/api/publications/:id/comments', verifyToken, commentUpload.array('med
 
         return {
           type: mediaType,
-          url: file.path.replace(/\\/g, '/'),
+          url: `${BASE_URL}/${file.path.replace(/\\/g, '/')}`,
           filename: file.filename,
-          duration: null // À implémenter côté client si besoin
+          duration: null
         };
       });
     }
@@ -1269,27 +1216,7 @@ app.post('/api/publications/:id/comments', verifyToken, commentUpload.array('med
     await pub.populate('comments.userId', 'name email profileImage');
     const addedComment = pub.comments[pub.comments.length - 1];
 
-    // Formatter la réponse
-    const formattedComment = {
-      _id: addedComment._id,
-      userId: {
-        _id: addedComment.userId._id,
-        name: addedComment.userId.name,
-        email: addedComment.userId.email,
-        profileImage: addedComment.userId.profileImage ? `${BASE_URL}/${addedComment.userId.profileImage}` : ''
-      },
-      content: addedComment.content,
-      media: addedComment.media.map(m => ({
-        type: m.type,
-        url: `${BASE_URL}/${m.url}`,
-        duration: m.duration
-      })),
-      replyTo: addedComment.replyTo,
-      likes: addedComment.likes,
-      isEdited: addedComment.isEdited,
-      createdAt: addedComment.createdAt,
-      updatedAt: addedComment.updatedAt
-    };
+    const formattedComment = addedComment.toObject();
 
     // 🔥 Broadcast via WebSocket
     if (typeof broadcastToAll === 'function') {
@@ -1343,27 +1270,7 @@ app.put('/api/publications/:pubId/comments/:commentId', verifyToken, async (req,
 
     const updatedComment = pub.comments.id(req.params.commentId);
     
-    // Formatter la réponse
-    const formattedComment = {
-      _id: updatedComment._id,
-      userId: {
-        _id: updatedComment.userId._id,
-        name: updatedComment.userId.name,
-        email: updatedComment.userId.email,
-        profileImage: updatedComment.userId.profileImage ? `${BASE_URL}/${updatedComment.userId.profileImage}` : ''
-      },
-      content: updatedComment.content,
-      media: updatedComment.media.map(m => ({
-        type: m.type,
-        url: `${BASE_URL}/${m.url}`,
-        duration: m.duration
-      })),
-      replyTo: updatedComment.replyTo,
-      likes: updatedComment.likes,
-      isEdited: updatedComment.isEdited,
-      createdAt: updatedComment.createdAt,
-      updatedAt: updatedComment.updatedAt
-    };
+    const formattedComment = updatedComment.toObject();
 
     // 🔥 Broadcast via WebSocket
     if (typeof broadcastToAll === 'function') {
@@ -1496,13 +1403,7 @@ app.post('/api/publications/:id/comments', verifyToken, async (req, res) => {
 
   res.status(201).json({ 
     message: 'Commentaire ajouté',
-    comment: {
-      ...comment.toObject(),
-      userId: comment.userId ? {
-        ...comment.userId.toObject(),
-        profileImage: comment.userId.profileImage ? `${BASE_URL}/${comment.userId.profileImage}` : ''
-      } : null
-    }
+    comment: comment.toObject()
   });
 });
 
@@ -1840,14 +1741,10 @@ app.get('/api/employees', verifyToken, verifyCanCreateEmployees, async (req, res
     }
     
     const employees = await Employee.find(query).sort(sortOptions);
-    const employeesWithUrls = employees.map(emp => ({
-      ...emp.toObject(),
-      faceImage: emp.faceImage ? `${BASE_URL}/${emp.faceImage}` : '',
-      certificate: emp.certificate ? `${BASE_URL}/${emp.certificate}` : ''
-    }));
+    const employeesData = employees.map(emp => emp.toObject());
     
     res.json({ 
-      employees: employeesWithUrls,
+      employees: employeesData,
       total: employees.length,
       filters: { search, department, status, sortBy, order }
     });
@@ -1874,8 +1771,8 @@ app.post('/api/employees', verifyToken, verifyCanCreateEmployees, employeeUpload
       phone: phone.trim(),
       role: role?.trim() || '',
       department: department?.trim() || 'IT',
-      faceImage: req.files.faceImage?.[0]?.path.replace(/\\/g, '/') || '',
-      certificate: req.files.certificate?.[0]?.path.replace(/\\/g, '/') || '',
+      faceImage: req.files.faceImage?.[0] ? `${BASE_URL}/${req.files.faceImage[0].path.replace(/\\/g, '/')}` : '',
+      certificate: req.files.certificate?.[0] ? `${BASE_URL}/${req.files.certificate[0].path.replace(/\\/g, '/')}` : '',
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
       certificateStartDate: certificateStartDate ? new Date(certificateStartDate) : undefined,
@@ -1883,12 +1780,7 @@ app.post('/api/employees', verifyToken, verifyCanCreateEmployees, employeeUpload
     });
 
     await employee.save();
-    const employeeWithUrls = {
-      ...employee.toObject(),
-      faceImage: employee.faceImage ? `${BASE_URL}/${employee.faceImage}` : '',
-      certificate: employee.certificate ? `${BASE_URL}/${employee.certificate}` : ''
-    };
-    res.json({ message: 'Employé créé', employee: employeeWithUrls });
+    res.json({ message: 'Employé créé', employee: employee.toObject() });
 
     // Créer une notification pour tous les admins (asynchrone)
     (async () => {
@@ -1967,28 +1859,23 @@ app.put('/api/employees/:id', verifyToken, verifyCanCreateEmployees, employeeUpl
     // Mise à jour des fichiers si fournis
     if (req.files.faceImage?.[0]) {
       if (employee.faceImage) {
-        const oldFacePath = path.join(__dirname, employee.faceImage);
+        const oldFacePath = path.join(__dirname, employee.faceImage.replace(`${BASE_URL}/`, ''));
         if (fs.existsSync(oldFacePath)) fs.unlinkSync(oldFacePath);
       }
-      employee.faceImage = req.files.faceImage[0].path.replace(/\\/g, '/');
+      employee.faceImage = `${BASE_URL}/${req.files.faceImage[0].path.replace(/\\/g, '/')}`;
     }
     if (req.files.certificate?.[0]) {
       if (employee.certificate) {
-        const oldCertPath = path.join(__dirname, employee.certificate);
+        const oldCertPath = path.join(__dirname, employee.certificate.replace(`${BASE_URL}/`, ''));
         if (fs.existsSync(oldCertPath)) fs.unlinkSync(oldCertPath);
       }
-      employee.certificate = req.files.certificate[0].path.replace(/\\/g, '/');
+      employee.certificate = `${BASE_URL}/${req.files.certificate[0].path.replace(/\\/g, '/')}`;
     }
 
     employee.updatedAt = new Date();
     await employee.save();
 
-    const employeeWithUrls = {
-      ...employee.toObject(),
-      faceImage: employee.faceImage ? `${BASE_URL}/${employee.faceImage}` : '',
-      certificate: employee.certificate ? `${BASE_URL}/${employee.certificate}` : ''
-    };
-    res.json({ message: 'Employé mis à jour', employee: employeeWithUrls });
+    res.json({ message: 'Employé mis à jour', employee: employee.toObject() });
 
     // Créer une notification pour tous les admins (asynchrone)
     (async () => {
@@ -2263,11 +2150,8 @@ app.get('/api/stats', verifyToken, async (req, res) => {
 
 app.get('/api/users', verifyToken, verifyCanManageUsers, async (req, res) => {
   const users = await User.find().select('-password -otp -otpExpires');
-  const usersWithUrls = users.map(user => ({
-    ...user.toObject(),
-    profileImage: user.profileImage ? `${BASE_URL}/${user.profileImage}` : ''
-  }));
-  res.json({ users: usersWithUrls });
+  const usersData = users.map(user => user.toObject());
+  res.json({ users: usersData });
 });
 
 app.put('/api/users/:id/status', verifyToken, verifyCanManageUsers, async (req, res) => {

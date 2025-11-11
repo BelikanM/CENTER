@@ -60,31 +60,34 @@ class MainPage extends StatelessWidget {
     // N'afficher le FAB que pour les admins
     if (!isAdmin) return const SizedBox.shrink();
     
-    return Container(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const LinearGradient(
-          colors: [Color(0xFF25D366), Color(0xFF128C7E)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF25D366).withValues(alpha: 0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 8),
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            colors: [Color(0xFF25D366), Color(0xFF128C7E)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-        ],
-      ),
-      child: FloatingActionButton(
-        heroTag: 'admin_add',
-        onPressed: () => _showCreateDialog(context),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        child: const Icon(
-          Icons.add,
-          color: Colors.black,
-          size: 32,
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF25D366).withValues(alpha: 0.3),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: FloatingActionButton(
+          heroTag: 'admin_add',
+          onPressed: () => _showCreateDialog(context),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: const Icon(
+            Icons.add,
+            color: Colors.black,
+            size: 32,
+          ),
         ),
       ),
     );
@@ -108,69 +111,78 @@ class MainPage extends StatelessWidget {
           ),
         ],
       ),
-      child: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.transparent,
-        selectedItemColor: const Color(0xFF25D366),
-        unselectedItemColor: Colors.black54,
-        currentIndex: appProvider.currentIndex,
-        onTap: (index) {
-          // Pour les non-admins, tous les index de la barre sont accessibles
-          // car elle ne contient que Home (0), Social (1), et Profile (2)
-          // Pour les admins, tous les index sont accessibles
-          appProvider.setCurrentIndex(index);
-        },
-        elevation: 0,
-        selectedFontSize: 12,
-        unselectedFontSize: 12,
-        iconSize: 28,
-        items: isAdmin 
-          ? const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home_rounded),
-                label: 'Accueil',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.groups_rounded),
-                label: 'Social',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.business_center_rounded),
-                label: 'Employés',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person_rounded),
-                label: 'Profil',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.admin_panel_settings_rounded),
-                label: 'Admin',
-              ),
-            ]
-          : const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home_rounded),
-                label: 'Accueil',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.groups_rounded),
-                label: 'Social',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person_rounded),
-                label: 'Profil',
-              ),
-            ],
+      child: SafeArea(
+        child: BottomNavigationBar(
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: Colors.transparent,
+          selectedItemColor: const Color(0xFF25D366),
+          unselectedItemColor: Colors.black54,
+          currentIndex: appProvider.currentIndex,
+          onTap: (index) {
+            // Pour les non-admins, tous les index de la barre sont accessibles
+            // car elle ne contient que Home (0), Social (1), et Profile (2)
+            // Pour les admins, tous les index sont accessibles
+            appProvider.setCurrentIndex(index);
+          },
+          elevation: 0,
+          selectedFontSize: 12,
+          unselectedFontSize: 12,
+          iconSize: 28,
+          items: isAdmin 
+            ? const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.home_rounded),
+                  label: 'Accueil',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.groups_rounded),
+                  label: 'Social',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.business_center_rounded),
+                  label: 'Employés',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person_rounded),
+                  label: 'Profil',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.admin_panel_settings_rounded),
+                  label: 'Admin',
+                ),
+              ]
+            : const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.home_rounded),
+                  label: 'Accueil',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.groups_rounded),
+                  label: 'Social',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person_rounded),
+                  label: 'Profil',
+                ),
+              ],
+        ),
       ),
     );
   }
 
   void _showCreateDialog(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.only(
+          left: 24,
+          right: 24,
+          top: 24,
+          bottom: 24 + bottomPadding, // Ajouter le padding du système
+        ),
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),

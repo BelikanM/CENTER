@@ -262,7 +262,7 @@ class _TrendsPageState extends State<TrendsPage> {
     final isLiked = publication['isLiked'] ?? false;
 
     return Positioned(
-      bottom: 20,
+      bottom: MediaQuery.of(context).padding.bottom + 20, // Ajouter padding système
       left: 0,
       right: 0,
       child: Padding(

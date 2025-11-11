@@ -161,6 +161,7 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
           ),
         ),
         child: SafeArea(
+          bottom: false, // Ne pas appliquer SafeArea en bas, on le gère manuellement
           child: Column(
             children: [
               _buildAppBar(),
@@ -179,15 +180,18 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'add_employee',
-        onPressed: _showAddEmployeeDialog,
-        backgroundColor: const Color(0xFFFF6B35),
-        foregroundColor: Colors.black,
-        icon: const Icon(Icons.person_add_rounded),
-        label: const Text(
-          'Ajouter',
-          style: TextStyle(fontWeight: FontWeight.w600),
+      floatingActionButton: Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
+        child: FloatingActionButton.extended(
+          heroTag: 'add_employee',
+          onPressed: _showAddEmployeeDialog,
+          backgroundColor: const Color(0xFFFF6B35),
+          foregroundColor: Colors.black,
+          icon: const Icon(Icons.person_add_rounded),
+          label: const Text(
+            'Ajouter',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
         ),
       ),
     );

@@ -390,18 +390,26 @@ class _ProfilePageState extends State<ProfilePage> {
 
         return Scaffold(
           backgroundColor: Colors.white,
-          body: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-                _buildProfileHeader(context, user),
-                const SizedBox(height: 24),
-                _buildQuickStats(context, appProvider),
-                const SizedBox(height: 24),
-                _buildSettings(context, appProvider),
-                const SizedBox(height: 24),
-                _buildLogoutButton(context, appProvider),
-              ],
-            ),
+          body: SafeArea(
+            bottom: false, // Ne pas appliquer SafeArea en bas
+            child: ListView(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: 20 + MediaQuery.of(context).padding.bottom, // Ajouter padding système
+              ),
+              children: [
+                  _buildProfileHeader(context, user),
+                  const SizedBox(height: 24),
+                  _buildQuickStats(context, appProvider),
+                  const SizedBox(height: 24),
+                  _buildSettings(context, appProvider),
+                  const SizedBox(height: 24),
+                  _buildLogoutButton(context, appProvider),
+                ],
+              ),
+          ),
         );
       },
     );

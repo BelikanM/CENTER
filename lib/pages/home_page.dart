@@ -54,6 +54,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           ),
         ),
         child: SafeArea(
+          bottom: false, // Ne pas appliquer SafeArea en bas, on le gère manuellement
           child: CustomScrollView(
             slivers: [
               _buildAppBar(),
@@ -68,7 +69,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     _buildQuickActions(),
                     const SizedBox(height: 32),
                     _buildRecentActivity(),
-                    const SizedBox(height: 100),
+                    SizedBox(height: 100 + MediaQuery.of(context).padding.bottom), // Padding bottom système
                   ]),
                 ),
               ),

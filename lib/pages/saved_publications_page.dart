@@ -311,7 +311,10 @@ class SavedPublicationsPageState extends State<SavedPublicationsPage> {
                   onRefresh: _loadSavedPublications,
                   color: const Color(0xFF00FF88),
                   child: ListView.builder(
-                    padding: const EdgeInsets.only(top: 8),
+                    padding: EdgeInsets.only(
+                      top: 8,
+                      bottom: MediaQuery.of(context).padding.bottom + 8, // Ajouter padding système
+                    ),
                     itemCount: _savedPublications.length,
                     itemBuilder: (context, index) {
                       final pub = _savedPublications[index];
