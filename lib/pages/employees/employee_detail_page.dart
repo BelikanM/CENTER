@@ -43,6 +43,19 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
   @override
   void initState() {
     super.initState();
+    
+    // 🔍 DEBUG: Afficher les données de l'employé reçu
+    debugPrint('📋 EmployeeDetailPage - Données reçues:');
+    debugPrint('   Clés disponibles: ${widget.employee.keys.toList()}');
+    debugPrint('   name: ${widget.employee['name']}');
+    debugPrint('   email: ${widget.employee['email']}');
+    debugPrint('   phone: ${widget.employee['phone']}');
+    debugPrint('   role: ${widget.employee['role']}');
+    debugPrint('   position: ${widget.employee['position']}');
+    debugPrint('   department: ${widget.employee['department']}');
+    debugPrint('   faceImage: ${widget.employee['faceImage']}');
+    debugPrint('   _id: ${widget.employee['_id']}');
+    
     _nameController = TextEditingController(text: widget.employee['name'] ?? '');
     _emailController = TextEditingController(text: widget.employee['email'] ?? '');
     _phoneController = TextEditingController(text: widget.employee['phone'] ?? '');
@@ -300,10 +313,16 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
     setState(() => _isLoading = true);
 
     try {
+      // 🔍 DEBUG: Vérifier les données avant l'appel API
+      debugPrint('📱 WhatsApp - Données employé:');
+      debugPrint('   _id: ${widget.employee['_id']}');
+      debugPrint('   name: ${widget.employee['name']}');
+      debugPrint('   Toutes les clés: ${widget.employee.keys.toList()}');
+      
       final result = await ApiService.getWhatsAppLink(
         widget.token,
         widget.employee['_id'],
-        message: 'Bonjour ${widget.employee['name']}, je vous contacte depuis l\'application CENTER.',
+        message: 'Bonjour ${widget.employee['name'] ?? 'cher employé'}, je vous contacte depuis l\'application CENTER.',
       );
 
       if (!mounted) return;

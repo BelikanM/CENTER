@@ -113,6 +113,13 @@ assets/images/app_logo.png
 WhatsApp Image *.jpg
 
 # =====================================
+# 🎥 VIDEOS AQUATIQUES (trop volumineuses)
+# =====================================
+assets/videos/*.mp4
+assets/videos/*.mov
+assets/videos/*.avi
+
+# =====================================
 # 🧠 SWIFTPM / DIVERS
 # =====================================
 .build/

@@ -1741,10 +1741,10 @@ app.get('/api/employees', verifyToken, verifyCanCreateEmployees, async (req, res
     }
     
     const employees = await Employee.find(query).sort(sortOptions);
-    const employeesData = employees.map(emp => emp.toObject());
     
+    // ✅ Retourner les données brutes pour que le middleware transforme les URLs
     res.json({ 
-      employees: employeesData,
+      employees: employees.map(emp => emp.toObject()),
       total: employees.length,
       filters: { search, department, status, sortBy, order }
     });

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:math' show Random;
 import '../main.dart';
 import '../api_service.dart';
 import '../components/gradient_button.dart';
 import '../components/custom_text_field.dart';
 import '../components/connection_status.dart';
+import '../components/aquatic_background.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -23,14 +25,25 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
   bool _isLoading = false;
   bool _showOtpField = false;
   String _message = '';
+  late String _selectedVideo;
   
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
+  // Liste de vidéos calmes pour la page de connexion
+  static const List<String> _calmAquaticVideos = [
+    'assets/videos/aquarium_1.mp4',   // 2.94 MB, 5s - Idéale
+    'assets/videos/aquarium_2.mp4',   // 6.53 MB, 18s
+    'assets/videos/aquarium_10.mp4',  // 1.58 MB, 21s
+    'assets/videos/aquarium_11.mp4',  // 1.56 MB, 23s
+  ];
+
   @override
   void initState() {
     super.initState();
+    // Sélectionner une vidéo calme aléatoire
+    _selectedVideo = _calmAquaticVideos[Random().nextInt(_calmAquaticVideos.length)];
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
@@ -68,17 +81,12 @@ class _AuthPageState extends State<AuthPage> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.white,
-              Color(0xFFF8FFF8), // Very light green tint
-            ],
-          ),
-        ),
+      body: AquaticBackground(
+        videoSource: _selectedVideo,
+        isAsset: true,
+        opacity: 0.2, // Un peu plus visible pour l'effet zen
+        withGradient: true,
+        gradientColor: Colors.white,
         child: SafeArea(
           child: AnimatedBuilder(
             animation: _animationController,
