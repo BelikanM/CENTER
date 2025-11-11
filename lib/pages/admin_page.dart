@@ -21,6 +21,22 @@ class _AdminPageState extends State<AdminPage> {
   List<dynamic> _employees = [];
   String? _error;
 
+  // Helper pour transformer les URLs relatives en URLs complètes
+  String _getFullUrl(String? url) {
+    if (url == null || url.isEmpty) return '';
+    
+    // Si l'URL commence déjà par http:// ou https://, la retourner telle quelle
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    
+    // Sinon, ajouter le baseUrl
+    final baseUrl = ApiService.baseUrl;
+    // Enlever le slash au début de l'URL si présent
+    final cleanUrl = url.startsWith('/') ? url.substring(1) : url;
+    return '$baseUrl/$cleanUrl';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -400,7 +416,12 @@ class _AdminPageState extends State<AdminPage> {
     final String name = user['name'] ?? 'Sans nom';
     final String email = user['email'] ?? '';
     final String status = user['status'] ?? 'active';
-    final String profileImage = user['profileImage'] ?? '';
+    final String rawProfileImage = user['profileImage'] ?? '';
+    final String profileImage = _getFullUrl(rawProfileImage);
+
+    debugPrint('👤 User: $name');
+    debugPrint('   Raw image: $rawProfileImage');
+    debugPrint('   Full URL: $profileImage');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -416,14 +437,32 @@ class _AdminPageState extends State<AdminPage> {
       child: Row(
         children: [
           CircleAvatar(
-            backgroundImage: profileImage.isNotEmpty
-                ? NetworkImage(profileImage)
-                : null,
-            backgroundColor: Colors.grey[300],
             radius: 24,
-            child: profileImage.isEmpty
-                ? const Icon(Icons.person, color: Colors.grey)
-                : null,
+            backgroundColor: Colors.grey[300],
+            child: profileImage.isNotEmpty
+                ? ClipOval(
+                    child: Image.network(
+                      profileImage,
+                      width: 48,
+                      height: 48,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return const Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        debugPrint('❌ Error loading user image: $error');
+                        debugPrint('   URL: $profileImage');
+                        return const Icon(Icons.person, color: Colors.grey);
+                      },
+                    ),
+                  )
+                : const Icon(Icons.person, color: Colors.grey),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -541,7 +580,12 @@ class _AdminPageState extends State<AdminPage> {
     final String email = employee['email'] ?? '';
     final String phone = employee['phone'] ?? '';
     final String status = employee['status'] ?? 'active';
-    final String faceImage = employee['faceImage'] ?? '';
+    final String rawFaceImage = employee['faceImage'] ?? '';
+    final String faceImage = _getFullUrl(rawFaceImage);
+
+    debugPrint('👷 Employee: $name');
+    debugPrint('   Raw image: $rawFaceImage');
+    debugPrint('   Full URL: $faceImage');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -557,14 +601,32 @@ class _AdminPageState extends State<AdminPage> {
       child: Row(
         children: [
           CircleAvatar(
-            backgroundImage: faceImage.isNotEmpty 
-              ? NetworkImage(faceImage) 
-              : null,
             radius: 24,
             backgroundColor: const Color(0xFFFF6B35),
-            child: faceImage.isEmpty 
-              ? const Icon(Icons.person, color: Colors.white) 
-              : null,
+            child: faceImage.isNotEmpty
+                ? ClipOval(
+                    child: Image.network(
+                      faceImage,
+                      width: 48,
+                      height: 48,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return const Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        debugPrint('❌ Error loading employee image: $error');
+                        debugPrint('   URL: $faceImage');
+                        return const Icon(Icons.person, color: Colors.white);
+                      },
+                    ),
+                  )
+                : const Icon(Icons.person, color: Colors.white),
           ),
           const SizedBox(width: 16),
           Expanded(
