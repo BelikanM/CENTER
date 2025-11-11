@@ -327,128 +327,68 @@ class _StoryViewPageState extends State<StoryViewPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: GestureDetector(
-        onTapDown: (details) {
-          final screenWidth = MediaQuery.of(context).size.width;
-          final tapPosition = details.globalPosition.dx;
-          
-          if (tapPosition < screenWidth / 3) {
-            _previousStory();
-          } else if (tapPosition > screenWidth * 2 / 3) {
-            _nextStory();
-          } else {
-            _togglePause();
-          }
-        },
-        child: Stack(
-          children: [
-            // PageView pour swipe
-            PageView.builder(
-              controller: _pageController,
-              onPageChanged: (index) {
-                setState(() {
-                  _currentStoryIndex = index;
-                });
-                _markStoryAsViewed(index);
-                _startStoryTimer();
+      body: Stack(
+        children: [
+          // GestureDetector pour navigation entre stories
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTapDown: (details) {
+                final screenWidth = MediaQuery.of(context).size.width;
+                final tapPosition = details.globalPosition.dx;
+                final tapY = details.globalPosition.dy;
+                
+                // Ignorer les taps dans la zone du header (150px du haut pour SafeArea + header)
+                if (tapY < 150) {
+                  debugPrint('🚫 Tap ignored (header zone at y: $tapY)');
+                  return;
+                }
+                
+                if (tapPosition < screenWidth / 3) {
+                  _previousStory();
+                } else if (tapPosition > screenWidth * 2 / 3) {
+                  _nextStory();
+                } else {
+                  _togglePause();
+                }
               },
-              itemCount: widget.stories.length,
-              itemBuilder: (context, index) {
-                return _buildStoryContent(widget.stories[index]);
-              },
-            ),
-
-            // Barre de progression en haut
-            SafeArea(
-              child: Column(
-                children: [
-                  _buildProgressBar(),
-                  _buildHeader(),
-                ],
+              child: PageView.builder(
+                controller: _pageController,
+                onPageChanged: (index) {
+                  setState(() {
+                    _currentStoryIndex = index;
+                  });
+                  _markStoryAsViewed(index);
+                  _startStoryTimer();
+                },
+                itemCount: widget.stories.length,
+                itemBuilder: (context, index) {
+                  return _buildStoryContent(widget.stories[index]);
+                },
               ),
             ),
+          ),
 
-            // Boutons de navigation (gauche/droite)
-            Positioned.fill(
-              child: Row(
-                children: [
-                  // Zone gauche (reculer)
-                  Expanded(
-                    flex: 1,
-                    child: GestureDetector(
-                      onTap: _previousStory,
-                      child: Container(
-                        color: Colors.transparent,
-                        alignment: Alignment.centerLeft,
-                        padding: const EdgeInsets.only(left: 16),
-                        child: _currentStoryIndex > 0
-                            ? Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.3),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.chevron_left,
-                                  color: Colors.white,
-                                  size: 32,
-                                ),
-                              )
-                            : const SizedBox.shrink(),
-                      ),
-                    ),
-                  ),
-                  
-                  // Zone centrale (pause)
-                  Expanded(
-                    flex: 1,
-                    child: GestureDetector(
-                      onTap: _togglePause,
-                      child: Container(color: Colors.transparent),
-                    ),
-                  ),
-                  
-                  // Zone droite (avancer)
-                  Expanded(
-                    flex: 1,
-                    child: GestureDetector(
-                      onTap: _nextStory,
-                      child: Container(
-                        color: Colors.transparent,
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.only(right: 16),
-                        child: _currentStoryIndex < widget.stories.length - 1
-                            ? Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.3),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.chevron_right,
-                                  color: Colors.white,
-                                  size: 32,
-                                ),
-                              )
-                            : const SizedBox.shrink(),
-                      ),
-                    ),
-                  ),
-                ],
+          // Barre de progression et header (au-dessus du GestureDetector)
+          SafeArea(
+            child: Column(
+              children: [
+                _buildProgressBar(),
+                _buildHeader(),
+              ],
+            ),
+          ),
+
+          // Indicateur de pause
+          if (_isPaused)
+            const Center(
+              child: Icon(
+                Icons.pause_circle_filled,
+                size: 80,
+                color: Colors.white70,
               ),
             ),
-
-            // Indicateur de pause
-            if (_isPaused)
-              const Center(
-                child: Icon(
-                  Icons.pause_circle_filled,
-                  size: 80,
-                  color: Colors.white70,
-                ),
-              ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -565,34 +505,42 @@ class _StoryViewPageState extends State<StoryViewPage> {
               ],
             ),
           ),
-          // Menu trois points pour le propriétaire, rien pour les autres
-          if (_isOwner(story))
-            PopupMenuButton<String>(
-              icon: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.4),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.more_vert,
-                  color: Colors.white,
-                  size: 22,
-                ),
+          // Menu trois points toujours visible
+          PopupMenuButton<String>(
+            icon: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.4),
+                shape: BoxShape.circle,
               ),
-              offset: const Offset(0, 50),
-              color: const Color(0xFF2A2A2E),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+              child: const Icon(
+                Icons.more_vert,
+                color: Colors.white,
+                size: 22,
               ),
-              elevation: 8,
-              onSelected: (value) {
-                if (value == 'delete') {
-                  _showDeleteConfirmation(_currentStoryIndex);
-                }
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(
+            ),
+            offset: const Offset(0, 50),
+            color: const Color(0xFF2A2A2E),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            elevation: 8,
+            onSelected: (value) {
+              debugPrint('🔘 Menu option selected: $value');
+              if (value == 'delete') {
+                debugPrint('🗑️ Launching delete confirmation');
+                _showDeleteConfirmation(_currentStoryIndex);
+              } else if (value == 'close') {
+                debugPrint('❌ Closing story viewer');
+                Navigator.pop(context);
+              }
+            },
+            itemBuilder: (context) {
+              debugPrint('📋 Building menu items. Is owner: ${_isOwner(story)}');
+              return [
+                // Option Supprimer uniquement pour le propriétaire
+                if (_isOwner(story))
+                  const PopupMenuItem(
                   value: 'delete',
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -610,8 +558,31 @@ class _StoryViewPageState extends State<StoryViewPage> {
                     ],
                   ),
                 ),
-              ],
-            ),
+              // Séparateur si propriétaire (entre Supprimer et Fermer)
+              if (_isOwner(story))
+                const PopupMenuDivider(height: 1),
+              // Option Fermer pour tous
+              const PopupMenuItem(
+                value: 'close',
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.close, color: Colors.white70, size: 20),
+                    SizedBox(width: 12),
+                    Text(
+                      'Fermer',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              ];
+            },
+          ),
         ],
       ),
     );

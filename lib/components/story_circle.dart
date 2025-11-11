@@ -218,39 +218,6 @@ class _StoryCircleState extends State<StoryCircle> {
                     ),
                   ),
                 ),
-              // Bouton supprimer pour les propres stories existantes
-              if (widget.isOwn && widget.hasStory && widget.onDelete != null)
-                Positioned(
-                  top: -4,
-                  right: -4,
-                  child: GestureDetector(
-                    onTap: widget.onDelete,
-                    child: Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade600,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white,
-                          width: 2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.3),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.close,
-                        color: Colors.white,
-                        size: 14,
-                      ),
-                    ),
-                  ),
-                ),
             ],
           ),
           const SizedBox(height: 8),
