@@ -207,30 +207,68 @@ class _StoryViewPageState extends State<StoryViewPage> {
   void _showDeleteConfirmation(int index) {
     showDialog(
       context: context,
+      barrierColor: Colors.black87,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A2E),
-        title: const Text(
-          'Supprimer la story',
-          style: TextStyle(color: Colors.white),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_rounded, color: Colors.orange, size: 28),
+            SizedBox(width: 12),
+            Text(
+              'Supprimer la story ?',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         ),
         content: const Text(
-          'Voulez-vous vraiment supprimer cette story ?',
-          style: TextStyle(color: Colors.white70),
+          'Cette action est irréversible. Votre story sera définitivement supprimée.',
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 14,
+            height: 1.4,
+          ),
         ),
+        actionsPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Annuler'),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.white70,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+            child: const Text(
+              'Annuler',
+              style: TextStyle(fontSize: 15),
+            ),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               Navigator.pop(dialogContext);
               _deleteStory(index);
             },
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.red,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              elevation: 0,
             ),
-            child: const Text('Supprimer'),
+            child: const Text(
+              'Supprimer',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),
@@ -400,32 +438,6 @@ class _StoryViewPageState extends State<StoryViewPage> {
               ),
             ),
 
-            // Bouton fermer (en bas à droite)
-            Positioned(
-              bottom: 32,
-              right: 16,
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => Navigator.pop(context),
-                  borderRadius: BorderRadius.circular(30),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                    child: const Icon(
-                      Icons.close,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
             // Indicateur de pause
             if (_isPaused)
               const Center(
@@ -553,24 +565,27 @@ class _StoryViewPageState extends State<StoryViewPage> {
               ],
             ),
           ),
+          // Menu trois points pour le propriétaire, rien pour les autres
           if (_isOwner(story))
             PopupMenuButton<String>(
               icon: Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.5),
+                  color: Colors.black.withValues(alpha: 0.4),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.more_vert,
                   color: Colors.white,
-                  size: 20,
+                  size: 22,
                 ),
               ),
+              offset: const Offset(0, 50),
               color: const Color(0xFF2A2A2E),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
+              elevation: 8,
               onSelected: (value) {
                 if (value == 'delete') {
                   _showDeleteConfirmation(_currentStoryIndex);
@@ -580,30 +595,22 @@ class _StoryViewPageState extends State<StoryViewPage> {
                 const PopupMenuItem(
                   value: 'delete',
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.delete, color: Colors.red),
-                      SizedBox(width: 8),
-                      Text('Supprimer', style: TextStyle(color: Colors.white)),
+                      Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                      SizedBox(width: 12),
+                      Text(
+                        'Supprimer',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ],
-            )
-          else
-            IconButton(
-              icon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.close,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-              onPressed: () => Navigator.pop(context),
             ),
         ],
       ),
