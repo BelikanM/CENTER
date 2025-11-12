@@ -33,6 +33,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
   // État de chargement et données depuis l'API
   bool _isLoading = false;
   List<dynamic> _publications = [];
+  List<dynamic> _filteredPublications = []; // Publications filtrées par recherche
   List<Map<String, dynamic>> _stories = [];
   bool _isLoadingStories = false;
   String? _error;
@@ -40,6 +41,11 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
   bool _hasMore = true;
   Set<String> _savedPublicationIds = {};
   final bool _isGroupedMode = true; // Mode groupé par défaut (WhatsApp style)
+  
+  // Recherche
+  final TextEditingController _searchController = TextEditingController();
+  bool _isSearching = false;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -213,6 +219,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
       if (mounted) {
         setState(() {
           _publications = result['publications'] ?? [];
+          _filteredPublications = _publications; // Initialiser les publications filtrées
           _currentPage = 1;
           _hasMore = (result['pagination']?['currentPage'] ?? 1) < (result['pagination']?['totalPages'] ?? 1);
           _isLoading = false;
@@ -288,6 +295,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
         final newPubs = result['publications'] ?? [];
         setState(() {
           _publications.addAll(newPubs);
+          _filteredPublications = _searchQuery.isEmpty ? _publications : _filteredPublications;
           _currentPage = nextPage;
           _hasMore = (result['pagination']?['currentPage'] ?? nextPage) < (result['pagination']?['totalPages'] ?? nextPage);
           _isLoading = false;
@@ -681,7 +689,30 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
     _fabAnimationController.dispose();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  // Filtrer les publications selon la recherche
+  void _filterPublications(String query) {
+    setState(() {
+      _searchQuery = query.toLowerCase();
+      if (_searchQuery.isEmpty) {
+        _filteredPublications = _publications;
+      } else {
+        _filteredPublications = _publications.where((pub) {
+          final title = (pub['title'] ?? '').toString().toLowerCase();
+          final content = (pub['content'] ?? '').toString().toLowerCase();
+          final author = (pub['author']?['name'] ?? '').toString().toLowerCase();
+          final department = (pub['author']?['department'] ?? '').toString().toLowerCase();
+          
+          return title.contains(_searchQuery) ||
+                 content.contains(_searchQuery) ||
+                 author.contains(_searchQuery) ||
+                 department.contains(_searchQuery);
+        }).toList();
+      }
+    });
   }
 
   @override
@@ -810,7 +841,9 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
 
   Widget _buildAppBar() {
     final screenHeight = MediaQuery.of(context).size.height;
-    final appBarHeight = (screenHeight * 0.12).clamp(80.0, 110.0); // 12% de la hauteur d'écran, entre 80 et 110
+    final appBarHeight = _isSearching 
+        ? (screenHeight * 0.18).clamp(140.0, 180.0) // Plus haut en mode recherche
+        : (screenHeight * 0.12).clamp(80.0, 110.0); // 12% de la hauteur d'écran, entre 80 et 110
     
     return SliverAppBar(
       expandedHeight: appBarHeight,
@@ -897,22 +930,64 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
                     ),
                   ),
                   IconButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      setState(() {
+                        _isSearching = !_isSearching;
+                        if (!_isSearching) {
+                          _searchController.clear();
+                          _filterPublications('');
+                        }
+                      });
+                    },
                     icon: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.1),
+                        color: _isSearching 
+                            ? const Color(0xFFFF6B35).withValues(alpha: 0.2)
+                            : Colors.white.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(
-                        Icons.search_rounded,
-                        color: Color(0xFFFF6B35),
+                      child: Icon(
+                        _isSearching ? Icons.close : Icons.search_rounded,
+                        color: const Color(0xFFFF6B35),
                         size: 20,
                       ),
                     ),
                   ),
                 ],
               ),
+              if (_isSearching)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: TextField(
+                    controller: _searchController,
+                    autofocus: true,
+                    style: const TextStyle(color: Colors.white),
+                    onChanged: _filterPublications,
+                    decoration: InputDecoration(
+                      hintText: 'Rechercher une publication...',
+                      hintStyle: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.5),
+                        fontSize: 14,
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        color: Color(0xFF00D4FF),
+                        size: 20,
+                      ),
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.1),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
@@ -1048,6 +1123,9 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
   }
 
   Widget _buildPostsSection() {
+    // Utiliser les publications filtrées
+    final displayPublications = _searchQuery.isEmpty ? _publications : _filteredPublications;
+    
     if (_isLoading && _publications.isEmpty) {
       return const SliverFillRemaining(
         child: Center(
@@ -1090,12 +1168,14 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
       );
     }
 
-    if (_publications.isEmpty) {
-      return const SliverFillRemaining(
+    if (displayPublications.isEmpty) {
+      return SliverFillRemaining(
         child: Center(
           child: Text(
-            'Aucune publication',
-            style: TextStyle(color: Colors.white70, fontSize: 16),
+            _searchQuery.isEmpty 
+                ? 'Aucune publication'
+                : 'Aucun résultat pour "$_searchQuery"',
+            style: const TextStyle(color: Colors.white70, fontSize: 16),
           ),
         ),
       );
@@ -1106,7 +1186,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate(
           (context, index) {
-            if (index >= _publications.length) {
+            if (index >= displayPublications.length) {
               // Loading indicator at bottom
               return _isLoading
                   ? const Padding(
@@ -1120,7 +1200,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
                   : const SizedBox.shrink();
             }
 
-            final pub = _publications[index];
+            final pub = displayPublications[index];
             final userId = pub['userId'] ?? {};
             final publicationUserId = userId['_id'] ?? '';
             
@@ -1216,7 +1296,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
               ),
             );
           },
-          childCount: _publications.length + (_isLoading ? 1 : 0),
+          childCount: displayPublications.length + (_isLoading ? 1 : 0),
         ),
       ),
     );
