@@ -401,22 +401,22 @@ class _ProfilePageState extends State<ProfilePage> {
             child: SafeArea(
               bottom: false, // Ne pas appliquer SafeArea en bas
               child: SingleChildScrollView(
-                padding: EdgeInsets.only(
+                padding: const EdgeInsets.only(
                   left: 20,
                   right: 20,
                   top: 20,
-                  bottom: 20 + MediaQuery.of(context).padding.bottom, // Ajouter padding système
+                  bottom: 100, // Padding fixe pour éviter l'overflow
                 ),
                 child: Column(
                   children: [
                     _buildProfileHeader(context, user),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16), // Réduit de 24 à 16
                     _buildQuickStats(context, appProvider),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16), // Réduit de 24 à 16
                     const ThemeSelector(), // Sélecteur de thème
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16), // Réduit de 24 à 16
                     _buildSettings(context, appProvider),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16), // Réduit de 24 à 16
                     _buildLogoutButton(context, appProvider),
                   ],
                 ),

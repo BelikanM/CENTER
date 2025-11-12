@@ -1710,6 +1710,10 @@ app.get('/api/employees', verifyToken, verifyCanCreateEmployees, async (req, res
   try {
     const { search, department, status, sortBy, order } = req.query;
     
+    // Récupérer l'email de l'utilisateur connecté
+    const currentUser = await User.findById(req.userId);
+    const currentUserEmail = currentUser ? currentUser.email : null;
+    
     // Construire la requête de filtrage
     let query = {};
     
@@ -1742,10 +1746,24 @@ app.get('/api/employees', verifyToken, verifyCanCreateEmployees, async (req, res
     
     const employees = await Employee.find(query).sort(sortOptions);
     
-    // ✅ Retourner les données brutes pour que le middleware transforme les URLs
+    // ✅ Mapper les employés et ajouter le statut "online" pour l'employé correspondant à l'utilisateur connecté
+    const employeesWithStatus = employees.map(emp => {
+      const empObj = emp.toObject();
+      
+      // Si l'email de l'employé correspond à l'utilisateur connecté, il est en ligne
+      if (currentUserEmail && empObj.email === currentUserEmail) {
+        empObj.status = 'online';
+      } else if (!empObj.status) {
+        empObj.status = 'offline';
+      }
+      
+      return empObj;
+    });
+    
+    // ✅ Retourner les données avec statuts
     res.json({ 
-      employees: employees.map(emp => emp.toObject()),
-      total: employees.length,
+      employees: employeesWithStatus,
+      total: employeesWithStatus.length,
       filters: { search, department, status, sortBy, order }
     });
   } catch (err) {

@@ -14,7 +14,7 @@ class ThemeSelector extends StatelessWidget {
         final currentTheme = themeProvider.currentTheme;
 
         return Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(16), // Réduit de 20 à 16
           decoration: BoxDecoration(
             color: currentTheme.surface,
             borderRadius: BorderRadius.circular(20),
@@ -33,7 +33,7 @@ class ThemeSelector extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(10), // Réduit de 12 à 10
                     decoration: BoxDecoration(
                       gradient: currentTheme.gradient,
                       borderRadius: BorderRadius.circular(12),
@@ -41,10 +41,10 @@ class ThemeSelector extends StatelessWidget {
                     child: Icon(
                       Icons.palette_rounded,
                       color: currentTheme.isDark ? Colors.white : Colors.black,
-                      size: 24,
+                      size: 22, // Réduit de 24 à 22
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 12), // Réduit de 16 à 12
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -52,7 +52,7 @@ class ThemeSelector extends StatelessWidget {
                         Text(
                           'Thème de l\'application',
                           style: TextStyle(
-                            fontSize: 18,
+                            fontSize: 17, // Réduit de 18 à 17
                             fontWeight: FontWeight.w700,
                             color: currentTheme.text,
                           ),
@@ -60,7 +60,7 @@ class ThemeSelector extends StatelessWidget {
                         Text(
                           currentTheme.name,
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 13, // Réduit de 14 à 13
                             color: currentTheme.textSecondary,
                           ),
                         ),
@@ -83,7 +83,7 @@ class ThemeSelector extends StatelessWidget {
                 ],
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 12), // Réduit de 20 à 12
 
               // Grille de thèmes
               GridView.builder(
@@ -91,9 +91,9 @@ class ThemeSelector extends StatelessWidget {
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 5,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 0.8,
+                  crossAxisSpacing: 10, // Réduit de 12 à 10
+                  mainAxisSpacing: 10, // Réduit de 12 à 10
+                  childAspectRatio: 0.85, // Augmenté de 0.8 à 0.85 pour moins de hauteur
                 ),
                 itemCount: AppTheme.allThemes.length,
                 itemBuilder: (context, index) {
@@ -157,16 +157,16 @@ class _ThemeCard extends StatelessWidget {
             // Icône emoji du thème
             Text(
               theme.icon,
-              style: const TextStyle(fontSize: 28),
+              style: const TextStyle(fontSize: 24), // Réduit de 28 à 24
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6), // Réduit de 8 à 6
             
             // Nom du thème
             Text(
               theme.name,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 10, // Réduit de 11 à 10
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 color: theme.isDark ? Colors.white : Colors.black,
               ),
@@ -174,11 +174,11 @@ class _ThemeCard extends StatelessWidget {
 
             // Indicateur de sélection
             if (isSelected) ...[
-              const SizedBox(height: 4),
+              const SizedBox(height: 3), // Réduit de 4 à 3
               Icon(
                 Icons.check_circle_rounded,
                 color: theme.isDark ? Colors.white : Colors.black,
-                size: 16,
+                size: 14, // Réduit de 16 à 14
               ),
             ],
           ],
