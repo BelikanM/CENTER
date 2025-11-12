@@ -930,6 +930,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 () async {
                   final themeId = theme['themeId'] as String;
                   await themeProvider.setThemeById(themeId);
+                  if (!context.mounted) return;
                   Navigator.pop(context);
                   _showMessage('Thème "${theme['name']}" appliqué !');
                 },

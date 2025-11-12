@@ -381,7 +381,7 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
               final employee = _employees[index];
 
               // Robust name extraction to avoid showing "null null"
-              String _extractDisplayName(Map<String, dynamic> emp) {
+              String extractDisplayName(Map<String, dynamic> emp) {
                 final raw = emp['name'];
                 if (raw != null) {
                   final s = raw.toString().trim();
@@ -401,7 +401,7 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
                 return 'Nom non défini';
               }
 
-              final displayName = _extractDisplayName(Map<String, dynamic>.from(employee));
+              final displayName = extractDisplayName(Map<String, dynamic>.from(employee));
               final displayRole = employee['role']?.toString() ?? employee['position']?.toString() ?? 'Sans poste';
               final displayDept = employee['department']?.toString() ?? 'Non défini';
               final displayEmail = employee['email']?.toString() ?? '';
