@@ -377,18 +377,48 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
           child: ListView.builder(
             padding: const EdgeInsets.all(24),
             itemCount: _employees.length,
-            itemBuilder: (context, index) {
+              itemBuilder: (context, index) {
               final employee = _employees[index];
+
+              // Robust name extraction to avoid showing "null null"
+              String _extractDisplayName(Map<String, dynamic> emp) {
+                final raw = emp['name'];
+                if (raw != null) {
+                  final s = raw.toString().trim();
+                  if (s.isNotEmpty && !s.toLowerCase().contains('null')) return s;
+                }
+
+                // Try first/last name variants
+                final first = (emp['firstName'] ?? emp['firstname'] ?? emp['givenName'])?.toString() ?? '';
+                final last = (emp['lastName'] ?? emp['lastname'] ?? emp['familyName'])?.toString() ?? '';
+                final combined = ('${first.trim()} ${last.trim()}').trim();
+                if (combined.isNotEmpty && !combined.toLowerCase().contains('null')) return combined;
+
+                // Fallback to email local-part
+                final email = emp['email']?.toString() ?? '';
+                if (email.isNotEmpty) return email.split('@').first;
+
+                return 'Nom non défini';
+              }
+
+              final displayName = _extractDisplayName(Map<String, dynamic>.from(employee));
+              final displayRole = employee['role']?.toString() ?? employee['position']?.toString() ?? 'Sans poste';
+              final displayDept = employee['department']?.toString() ?? 'Non défini';
+              final displayEmail = employee['email']?.toString() ?? '';
+              final displayPhone = employee['phone']?.toString() ?? '';
+              final displayStatus = employee['status']?.toString() ?? 'offline';
+              final displayAvatar = employee['avatar']?.toString() ?? employee['faceImage']?.toString() ?? '';
+
               return Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: EmployeeCard(
-                  name: employee['name']?.toString() ?? 'Nom non défini',
-                  role: employee['role']?.toString() ?? employee['position']?.toString() ?? 'Sans poste',
-                  department: employee['department']?.toString() ?? 'Non défini',
-                  email: employee['email']?.toString() ?? '',
-                  phone: employee['phone']?.toString() ?? '',
-                  status: employee['status']?.toString() ?? 'offline',
-                  avatar: employee['avatar']?.toString() ?? employee['faceImage']?.toString() ?? '',
+                  name: displayName,
+                  role: displayRole,
+                  department: displayDept,
+                  email: displayEmail,
+                  phone: displayPhone,
+                  status: displayStatus,
+                  avatar: displayAvatar,
                   onTap: () => _showEmployeeDetails(employee),
                   onMessage: () => _showMessageDialog(employee),
                   onCall: () => _makeCall(employee),

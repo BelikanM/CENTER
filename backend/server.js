@@ -1710,9 +1710,10 @@ app.get('/api/employees', verifyToken, verifyCanCreateEmployees, async (req, res
   try {
     const { search, department, status, sortBy, order } = req.query;
     
-    // Récupérer l'email de l'utilisateur connecté
-    const currentUser = await User.findById(req.userId);
-    const currentUserEmail = currentUser ? currentUser.email : null;
+  // Récupérer l'email de l'utilisateur connecté
+  // NOTE: verifyToken ajoute req.user (JWT payload). Utiliser req.user.userId ici.
+  const currentUser = await User.findById(req.user?.userId);
+  const currentUserEmail = currentUser ? currentUser.email : null;
     
     // Construire la requête de filtrage
     let query = {};
