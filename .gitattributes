@@ -1,0 +1,75 @@
+# =====================================
+# 🔧 GIT ATTRIBUTES CONFIGURATION
+# =====================================
+
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# =====================================
+# 📝 TEXT FILES
+# =====================================
+*.dart text
+*.py text
+*.js text
+*.ts text
+*.json text
+*.yaml text
+*.yml text
+*.md text
+*.txt text
+*.xml text
+*.html text
+*.css text
+*.scss text
+*.sh text eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# =====================================
+# 🎨 BINARY FILES
+# =====================================
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.mp3 binary
+*.mp4 binary
+*.mov binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.tar binary
+
+# =====================================
+# 🤖 AI MODELS (MARK AS BINARY)
+# =====================================
+*.gguf binary
+*.bin binary
+*.safetensors binary
+*.onnx binary
+*.h5 binary
+*.pkl binary
+*.pt binary
+*.pth binary
+*.ckpt binary
+*.tflite binary
+
+# =====================================
+# 📊 LINGUIST VENDORED (IGNORE IN STATS)
+# =====================================
+backend/models/** linguist-vendored
+assets/llm_models/** linguist-vendored
+backend/node_modules/** linguist-vendored
+build/** linguist-vendored
+*.generated.dart linguist-generated
+
+# =====================================
+# 🚫 GIT LFS (LARGE FILE STORAGE)
+# =====================================
+# Décommenter si vous utilisez Git LFS
+# *.gguf filter=lfs diff=lfs merge=lfs -text
+# *.bin filter=lfs diff=lfs merge=lfs -text
+# *.safetensors filter=lfs diff=lfs merge=lfs -text
+# *.mp4 filter=lfs diff=lfs merge=lfs -text
+# *.pdf filter=lfs diff=lfs merge=lfs -text
