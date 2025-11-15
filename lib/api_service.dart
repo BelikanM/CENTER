@@ -581,6 +581,68 @@ class ApiService {
     }
   }
 
+  // Obtenir les statistiques de partage d'une publication
+  static Future<Map<String, dynamic>> getPublicationShareStats(String token, String publicationId) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl$apiPrefix/publications/$publicationId/share-stats'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'stats': data['stats'],
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Erreur lors de la récupération des stats',
+        };
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur getPublicationShareStats: $e');
+      return {
+        'success': false,
+        'message': 'Erreur de connexion',
+      };
+    }
+  }
+
+  // Incrémenter le compteur de partages
+  static Future<Map<String, dynamic>> incrementShareCount(String token, String publicationId) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl$apiPrefix/publications/$publicationId/share'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'shareCount': data['shareCount'],
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Erreur lors de l\'incrémentation',
+        };
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur incrementShareCount: $e');
+      return {
+        'success': false,
+        'message': 'Erreur de connexion',
+      };
+    }
+  }
+
   // Récupérer les publications d'un utilisateur
   static Future<Map<String, dynamic>> getUserPublications(String token, String userId) async {
     await _ensureInitialized();

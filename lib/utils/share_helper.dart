@@ -3,7 +3,10 @@ import 'package:share_plus/share_plus.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
+import 'package:provider/provider.dart';
 import 'dart:io';
+import '../api_service.dart';
+import '../main.dart';
 
 class ShareHelper {
   /// Partage une publication avec média (image ou vidéo)
@@ -380,6 +383,9 @@ $deepLink
             
             // Afficher confirmation si partagé avec succès
             if (context.mounted && result.status == ShareResultStatus.success) {
+              // Incrémenter le compteur de partages
+              _incrementShareCount(context, publicationId);
+              
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Row(
@@ -415,41 +421,68 @@ $deepLink
       }
 
       // Partage texte uniquement (si pas de média ou erreur)
-      await Share.share(
+      final textResult = await Share.share(
         shareText,
         subject: '$emoji Publication de $userName - CENTER',
       );
 
-      // Afficher confirmation
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'Lien copié ! Partage-le sur tes réseaux',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: const Color(0xFF00FF88),
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
+      // Vérifier le contexte avant de continuer
+      if (!context.mounted) return;
+
+      // Incrémenter compteur si partagé avec succès
+      if (textResult.status == ShareResultStatus.success) {
+        _incrementShareCount(context, publicationId);
       }
+
+      // Afficher confirmation
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Lien copié ! Partage-le sur tes réseaux',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFF00FF88),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
     } catch (e) {
       debugPrint('❌ Erreur partage lien: $e');
       if (context.mounted) {
         _showError(context, 'Erreur lors du partage');
       }
+    }
+  }
+
+  /// Incrémenter le compteur de partages (en arrière-plan)
+  static void _incrementShareCount(BuildContext context, String publicationId) {
+    try {
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      final token = appProvider.accessToken;
+      
+      if (token != null) {
+        // Appel asynchrone sans attendre la réponse
+        ApiService.incrementShareCount(token, publicationId).then((result) {
+          if (result['success'] == true) {
+            debugPrint('✅ Compteur de partages incrémenté: ${result['shareCount']}');
+          }
+        }).catchError((e) {
+          debugPrint('❌ Erreur incrémentation compteur: $e');
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur _incrementShareCount: $e');
     }
   }
 }

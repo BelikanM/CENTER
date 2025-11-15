@@ -282,6 +282,14 @@ const publicationSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }
   }],
+  // Statistiques de partage
+  shareCount: { type: Number, default: 0 },
+  shareVisits: [{
+    visitorId: { type: String }, // IP ou fingerprint du visiteur
+    visitedAt: { type: Date, default: Date.now },
+    isNewUser: { type: Boolean, default: false },
+    userAgent: { type: String }
+  }],
   isActive: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
@@ -1082,6 +1090,26 @@ app.get('/api/publications/shared/:id', async (req, res) => {
         message: 'Publication introuvable' 
       });
     }
+
+    // Tracker la visite
+    const visitorId = req.headers['x-forwarded-for'] || req.ip || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    
+    // Vérifier si c'est une nouvelle visite (pas visitée dans les dernières 24h)
+    const existingVisit = pub.shareVisits.find(v => 
+      v.visitorId === visitorId && 
+      (Date.now() - new Date(v.visitedAt).getTime()) < 24 * 60 * 60 * 1000
+    );
+    
+    if (!existingVisit) {
+      pub.shareVisits.push({
+        visitorId,
+        visitedAt: new Date(),
+        isNewUser: true,
+        userAgent
+      });
+      await pub.save();
+    }
     
     res.json({ 
       success: true,
@@ -1089,6 +1117,71 @@ app.get('/api/publications/shared/:id', async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Erreur récupération publication partagée:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur' 
+    });
+  }
+});
+
+// Route pour obtenir les statistiques de partage d'une publication
+app.get('/api/publications/:id/share-stats', verifyToken, async (req, res) => {
+  try {
+    const pub = await Publication.findById(req.params.id);
+    
+    if (!pub) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Publication introuvable' 
+      });
+    }
+
+    // Vérifier que l'utilisateur est le propriétaire
+    if (pub.userId.toString() !== req.user.userId) {
+      return res.status(403).json({ 
+        success: false,
+        message: 'Accès refusé' 
+      });
+    }
+
+    // Calculer les statistiques
+    const totalVisits = pub.shareVisits.length;
+    const uniqueVisitors = new Set(pub.shareVisits.map(v => v.visitorId)).size;
+    
+    // Visites par jour (7 derniers jours)
+    const last7Days = [];
+    const now = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      date.setHours(0, 0, 0, 0);
+      
+      const nextDay = new Date(date);
+      nextDay.setDate(nextDay.getDate() + 1);
+      
+      const visitsCount = pub.shareVisits.filter(v => {
+        const visitDate = new Date(v.visitedAt);
+        return visitDate >= date && visitDate < nextDay;
+      }).length;
+      
+      last7Days.push({
+        date: date.toISOString().split('T')[0],
+        visits: visitsCount
+      });
+    }
+
+    res.json({
+      success: true,
+      stats: {
+        totalVisits,
+        uniqueVisitors,
+        shareCount: pub.shareCount || 0,
+        visitsByDay: last7Days,
+        recentVisits: pub.shareVisits.slice(-10).reverse() // 10 dernières visites
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erreur stats partage:', error);
     res.status(500).json({ 
       success: false,
       message: 'Erreur serveur' 
@@ -1127,6 +1220,35 @@ app.put('/api/publications/:id', verifyToken, publicationUpload.array('media', 1
   await pub.populate('userId', 'name email profileImage');
 
   res.json({ message: 'Mise à jour OK', publication: pub });
+});
+
+// Route pour incrémenter le compteur de partages
+app.post('/api/publications/:id/share', verifyToken, async (req, res) => {
+  try {
+    const pub = await Publication.findById(req.params.id);
+    
+    if (!pub) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Publication introuvable' 
+      });
+    }
+
+    // Incrémenter le compteur
+    pub.shareCount = (pub.shareCount || 0) + 1;
+    await pub.save();
+
+    res.json({
+      success: true,
+      shareCount: pub.shareCount
+    });
+  } catch (error) {
+    console.error('❌ Erreur incrémentation partage:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur' 
+    });
+  }
 });
 
 app.delete('/api/publications/:id', verifyToken, async (req, res) => {
