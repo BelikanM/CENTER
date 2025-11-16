@@ -51,6 +51,8 @@ class _CommentsPageState extends State<CommentsPage> {
   void _listenToWebSocket() {
     final appProvider = Provider.of<AppProvider>(context, listen: false);
     appProvider.webSocketStream.listen((message) {
+      if (!mounted) return; // Vérifier si le widget est toujours actif
+      
       if (message['type'] == 'new_comment' && 
           message['publicationId'] == widget.publicationId) {
         setState(() {
@@ -71,6 +73,8 @@ class _CommentsPageState extends State<CommentsPage> {
   }
 
   void _updateComment(Map<String, dynamic> updatedComment) {
+    if (!mounted) return; // Vérifier si le widget est toujours actif
+    
     setState(() {
       final index = _comments.indexWhere((c) => c['_id'] == updatedComment['_id']);
       if (index != -1) {
@@ -80,12 +84,16 @@ class _CommentsPageState extends State<CommentsPage> {
   }
 
   void _removeComment(String commentId) {
+    if (!mounted) return; // Vérifier si le widget est toujours actif
+    
     setState(() {
       _comments.removeWhere((c) => c['_id'] == commentId);
     });
   }
 
   void _updateCommentLikes(String commentId, List<dynamic> likes) {
+    if (!mounted) return; // Vérifier si le widget est toujours actif
+    
     setState(() {
       final index = _comments.indexWhere((c) => c['_id'] == commentId);
       if (index != -1) {
