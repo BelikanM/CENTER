@@ -334,17 +334,6 @@ class _SharedPublicationPageState extends State<SharedPublicationPage> {
       }
     }
     
-    // Géolocalisation
-    final location = pub['location'] as Map<String, dynamic>?;
-    double? latitude;
-    double? longitude;
-    if (location != null) {
-      if (location.containsKey('latitude') && location.containsKey('longitude')) {
-        latitude = (location['latitude'] as num?)?.toDouble();
-        longitude = (location['longitude'] as num?)?.toDouble();
-      }
-    }
-    
     // Calculer le temps écoulé
     String timeAgo = 'maintenant';
     if (createdAt != null) {
@@ -363,6 +352,27 @@ class _SharedPublicationPageState extends State<SharedPublicationPage> {
       }
     }
 
+    // ✅ AJOUT - Récupérer la géolocalisation
+    final location = pub['location'] as Map<String, dynamic>?;
+    double? latitude;
+    double? longitude;
+    if (location != null) {
+      // Le backend peut utiliser deux formats différents:
+      // 1. {latitude: X, longitude: Y}
+      // 2. {coordinates: [lng, lat]}
+      if (location.containsKey('latitude') && location.containsKey('longitude')) {
+        latitude = (location['latitude'] as num?)?.toDouble();
+        longitude = (location['longitude'] as num?)?.toDouble();
+      } else if (location.containsKey('coordinates')) {
+        final coords = location['coordinates'] as List?;
+        if (coords != null && coords.length >= 2) {
+          longitude = (coords[0] as num?)?.toDouble(); // GeoJSON: [lng, lat]
+          latitude = (coords[1] as num?)?.toDouble();
+        }
+      }
+      debugPrint('📍 Géolocalisation partagée: lat=$latitude, lng=$longitude');
+    }
+
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -377,8 +387,8 @@ class _SharedPublicationPageState extends State<SharedPublicationPage> {
           imageUrl: mediaUrl,
           mediaType: mediaType,
           userAvatar: userAvatar,
-          latitude: latitude,
-          longitude: longitude,
+          latitude: latitude, // ✅ AJOUT - Passer la latitude
+          longitude: longitude, // ✅ AJOUT - Passer la longitude
           onLike: () {
             // Géré dans le composant
           },

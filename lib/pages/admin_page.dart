@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../main.dart';
 import '../components/futuristic_card.dart';
 import '../components/gradient_button.dart';
+import '../components/image_background.dart';
+import '../utils/background_image_manager.dart';
 import '../api_service.dart';
 
 class AdminPage extends StatefulWidget {
@@ -13,6 +15,8 @@ class AdminPage extends StatefulWidget {
 }
 
 class _AdminPageState extends State<AdminPage> {
+  late String _selectedImage;
+  final BackgroundImageManager _imageManager = BackgroundImageManager();
   bool _isLoadingStats = false;
   bool _isLoadingUsers = false;
   bool _isLoadingEmployees = false;
@@ -40,6 +44,7 @@ class _AdminPageState extends State<AdminPage> {
   @override
   void initState() {
     super.initState();
+    _selectedImage = _imageManager.getImageForPage('admin');
     _loadAdminData();
   }
 
@@ -131,7 +136,7 @@ class _AdminPageState extends State<AdminPage> {
         }
 
         return Scaffold(
-        backgroundColor: Colors.white,
+          backgroundColor: Colors.grey[50], // ✅ MODIFIÉ - Plus de blanc pur
           appBar: AppBar(
             title: const Text(
               'Administration',
@@ -152,17 +157,22 @@ class _AdminPageState extends State<AdminPage> {
               ),
             ],
           ),
-          body: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              _buildAdminStats(context, appProvider),
-              const SizedBox(height: 24),
-              _buildUserManagement(context, appProvider),
-              const SizedBox(height: 24),
-              _buildEmployeeManagement(context, appProvider),
-              const SizedBox(height: 24),
-              _buildSystemControls(context, appProvider),
-            ],
+          extendBodyBehindAppBar: true,
+          body: ImageBackground(
+            imagePath: _selectedImage,
+            opacity: 0.25,
+            child: ListView(
+              padding: const EdgeInsets.only(top: kToolbarHeight + 60, left: 20, right: 20, bottom: 20),
+              children: [
+                _buildAdminStats(context, appProvider),
+                const SizedBox(height: 24),
+                _buildUserManagement(context, appProvider),
+                const SizedBox(height: 24),
+                _buildEmployeeManagement(context, appProvider),
+                const SizedBox(height: 24),
+                _buildSystemControls(context, appProvider),
+              ],
+            ),
           ),
         );
       },
@@ -171,7 +181,7 @@ class _AdminPageState extends State<AdminPage> {
 
   Widget _buildAccessDenied(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.grey[50], // ✅ MODIFIÉ - Plus de blanc pur
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

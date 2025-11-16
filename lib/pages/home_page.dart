@@ -106,13 +106,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     return Scaffold(
       body: ImageBackground(
         imagePath: _selectedImage,
-        opacity: 0.30, // Réduit pour éviter le voile blanc
-        withGradient: false, // Désactivé pour clarté maximale
+        opacity: 0.30,
+        withGradient: false,
         child: RefreshIndicator(
           onRefresh: _loadStats,
           color: const Color(0xFF00FF88),
           child: SafeArea(
-            bottom: false, // Ne pas appliquer SafeArea en bas, on le gère manuellement
+            bottom: false,
             child: CustomScrollView(
               slivers: [
                 _buildAppBar(),
@@ -127,7 +127,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       _buildQuickActions(),
                       const SizedBox(height: 32),
                       _buildRecentActivity(),
-                      SizedBox(height: 100 + MediaQuery.of(context).padding.bottom), // Padding bottom système
+                      SizedBox(height: 100 + MediaQuery.of(context).padding.bottom),
                     ]),
                   ),
                 ),
@@ -175,13 +175,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           gradient: const LinearGradient(
                             colors: [Color(0xFF00FF88), Color(0xFF00CC66)],
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF00FF88).withValues(alpha: 0.3),
-                              blurRadius: 20,
-                              spreadRadius: 2,
-                            ),
-                          ],
                         ),
                         padding: const EdgeInsets.all(8),
                         child: ClipOval(
@@ -212,13 +205,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                 color: Colors.white,
                                 width: 2.5,
                               ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.red.withValues(alpha: 0.5),
-                                  blurRadius: 8,
-                                  spreadRadius: 1,
-                                ),
-                              ],
                             ),
                             constraints: const BoxConstraints(
                               minWidth: 22,
@@ -313,13 +299,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                                 color: Colors.white,
                                 width: 2,
                               ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.red.withValues(alpha: 0.4),
-                                  blurRadius: 6,
-                                  spreadRadius: 1,
-                                ),
-                              ],
                             ),
                             constraints: const BoxConstraints(
                               minWidth: 20,
@@ -416,13 +395,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                             colors: [Color(0xFF00FF88), Color(0xFF00CC66)],
                           )
                         : null,
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF00FF88).withValues(alpha: 0.3),
-                        blurRadius: 20,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
                     image: avatarUrl != null
                         ? DecorationImage(
                             image: NetworkImage(avatarUrl),

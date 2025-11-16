@@ -7,6 +7,7 @@ import 'employees_page.dart';
 import 'profile_page.dart';
 import 'auth_page.dart';
 import 'admin_page.dart';
+import 'chat_gpt_page.dart';
 import 'create/create_publication_page.dart';
 import 'create/create_employee_page.dart';
 import 'create/create_marker_page.dart';
@@ -70,13 +71,6 @@ class MainPage extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF25D366).withValues(alpha: 0.3),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
         ),
         child: FloatingActionButton(
           heroTag: 'admin_add',
@@ -103,13 +97,6 @@ class MainPage extends StatelessWidget {
             width: 1,
           ),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
       ),
       child: SafeArea(
         child: BottomNavigationBar(
@@ -279,6 +266,27 @@ class MainPage extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildCreateOption(
+                  context,
+                  icon: Icons.chat_rounded,
+                  label: 'Chat IA',
+                  color: const Color(0xFF10A37F),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ChatGPTPage(),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
             const SizedBox(height: 24),
           ],
         ),
@@ -312,13 +320,6 @@ class MainPage extends StatelessWidget {
               decoration: BoxDecoration(
                 color: color,
                 shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: color.withValues(alpha: 0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
               ),
               child: Icon(
                 icon,

@@ -25,9 +25,9 @@ class _MapViewPageState extends State<MapViewPage> {
   bool _isLoadingPublications = true;
   
   // Fournisseurs de tuiles
-  String _currentTileProvider = 'osm';
+  String _currentTileProvider = 'carto'; // ✅ CHANGÉ - Carto par défaut au lieu de OSM
   final Map<String, String> _tileProviders = {
-    'osm': 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    'osm': 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', // ✅ CHANGÉ - Carto au lieu de OSM
     'topo': 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
     'carto': 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
     'dark': 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',

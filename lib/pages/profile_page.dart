@@ -908,34 +908,35 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1A1A1A),
+        contentPadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
         title: const Text(
           'Choisir un thème',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
         ),
         content: SizedBox(
           width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: colorThemes.length,
-            itemBuilder: (context, index) {
-              final theme = colorThemes[index];
-              final isSelected = themeProvider.currentTheme.id == theme['themeId'];
-              
-              return _buildThemeOption(
-                context,
-                theme['name'] as String,
-                theme['primary'] as Color,
-                theme['secondary'] as Color,
-                isSelected,
-                () async {
-                  final themeId = theme['themeId'] as String;
-                  await themeProvider.setThemeById(themeId);
-                  if (!context.mounted) return;
-                  Navigator.pop(context);
-                  _showMessage('Thème "${theme['name']}" appliqué !');
-                },
-              );
-            },
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: colorThemes.map((theme) {
+                final isSelected = themeProvider.currentTheme.id == theme['themeId'];
+                
+                return _buildThemeOption(
+                  context,
+                  theme['name'] as String,
+                  theme['primary'] as Color,
+                  theme['secondary'] as Color,
+                  isSelected,
+                  () async {
+                    final themeId = theme['themeId'] as String;
+                    await themeProvider.setThemeById(themeId);
+                    if (!context.mounted) return;
+                    Navigator.pop(context);
+                    _showMessage('Thème "${theme['name']}" appliqué !');
+                  },
+                );
+              }).toList(),
+            ),
           ),
         ),
         actions: [
@@ -959,8 +960,8 @@ class _ProfilePageState extends State<ProfilePage> {
     return InkWell(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF3A3A3A) : const Color(0xFF2A2A2A),
           borderRadius: BorderRadius.circular(12),
@@ -975,10 +976,11 @@ class _ProfilePageState extends State<ProfilePage> {
           children: [
             // Prévisualisation des couleurs
             Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 30,
-                  height: 30,
+                  width: 28,
+                  height: 28,
                   decoration: BoxDecoration(
                     color: primaryColor,
                     shape: BoxShape.circle,
@@ -987,10 +989,10 @@ class _ProfilePageState extends State<ProfilePage> {
                         : null,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 Container(
-                  width: 30,
-                  height: 30,
+                  width: 28,
+                  height: 28,
                   decoration: BoxDecoration(
                     color: secondaryColor,
                     shape: BoxShape.circle,
@@ -1001,21 +1003,24 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ],
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 name,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: FontWeight.w500,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            const Icon(
+            const SizedBox(width: 8),
+            Icon(
               Icons.arrow_forward_ios_rounded,
               color: Colors.white54,
-              size: 16,
+              size: 14,
             ),
           ],
         ),

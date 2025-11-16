@@ -56,13 +56,6 @@ class _CustomTextFieldState extends State<CustomTextField> {
               : const Color(0xFF00FF88).withValues(alpha: 0.3),
             width: _isFocused ? 2 : 1,
           ),
-          boxShadow: _isFocused ? [
-            BoxShadow(
-              color: const Color(0xFF00FF88).withValues(alpha: 0.2),
-              blurRadius: 15,
-              offset: const Offset(0, 6),
-            ),
-          ] : null,
         ),
         child: TextFormField(
           controller: widget.controller,

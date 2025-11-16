@@ -782,7 +782,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
     return Scaffold(
       body: ImageBackground(
         imagePath: _selectedImage,
-        opacity: 0.20, // Réduit pour subtilité et clarté
+        opacity: 0.20,
         withGradient: true,
         gradientColor: const Color(0xFF000000),
         child: SafeArea(
@@ -1403,8 +1403,8 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
                 imageUrl: imageUrl,
                 mediaType: mediaType, // Passer le type de média
                 userAvatar: userAvatar,
-                latitude: latitude, // ✅ AJOUT - Géolocalisation
-                longitude: longitude, // ✅ AJOUT - Géolocalisation
+                latitude: latitude, // ✅ AJOUT - Passer la latitude
+                longitude: longitude, // ✅ AJOUT - Passer la longitude
                 onLike: () => _likePublication(publicationId),
                 onComment: () => _showCommentsDialog(publicationId, content),
                 onShare: () => _sharePublication(publicationId),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async'; // ✅ Pour Timer auto-refresh
 import '../api_service.dart';
 import 'employees/employee_detail_page.dart';
 
@@ -18,30 +19,71 @@ class GeolocationStatsPage extends StatefulWidget {
 
 class _GeolocationStatsPageState extends State<GeolocationStatsPage> {
   List<dynamic> _locations = [];
+  List<dynamic> _publications = []; // ✅ Publications géolocalisées
   bool _isLoading = true;
   String _viewMode = 'list'; // 'list' or 'map'
+  Timer? _refreshTimer; // ✅ Timer pour auto-refresh
 
   @override
   void initState() {
     super.initState();
     _loadLocations();
+    
+    // ✅ AJOUT - Auto-refresh toutes les 10 secondes
+    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      if (mounted) {
+        _loadLocations(showLoading: false);
+      }
+    });
   }
 
-  Future<void> _loadLocations() async {
+  @override
+  void dispose() {
+    _refreshTimer?.cancel(); // ✅ AJOUT - Annuler le timer
+    super.dispose();
+  }
+
+  Future<void> _loadLocations({bool showLoading = true}) async {
+    if (showLoading) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
+    
     try {
-      final data = await ApiService().getGeolocationData(widget.token);
-      setState(() {
-        _locations = data['locations'] ?? [];
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
+      debugPrint('🔄 Chargement des données de géolocalisation...');
+      
+      // Charger les DEUX types de données
+      final publicationsData = await ApiService().getGeolocatedPublications(widget.token);
+      final employeesData = await ApiService().getGeolocationData(widget.token);
+      
+      debugPrint('✅ Publications: ${publicationsData['total']} trouvées');
+      debugPrint('✅ Employés: ${employeesData['total']} trouvés');
+      
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
+        setState(() {
+          _publications = publicationsData['publications'] ?? [];
+          _locations = employeesData['locations'] ?? [];
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur chargement géolocalisation: $e');
+      
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        
+        if (showLoading) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erreur: $e'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
       }
     }
   }
@@ -66,6 +108,15 @@ class _GeolocationStatsPageState extends State<GeolocationStatsPage> {
           ),
         ),
         actions: [
+          // ✅ AJOUT - Bouton refresh manuel
+          IconButton(
+            icon: const Icon(
+              Icons.refresh,
+              color: Colors.white,
+            ),
+            onPressed: () => _loadLocations(),
+            tooltip: 'Actualiser',
+          ),
           IconButton(
             icon: Icon(
               _viewMode == 'list' ? Icons.map_rounded : Icons.list_rounded,
@@ -76,14 +127,18 @@ class _GeolocationStatsPageState extends State<GeolocationStatsPage> {
                 _viewMode = _viewMode == 'list' ? 'map' : 'list';
               });
             },
+            tooltip: _viewMode == 'list' ? 'Vue carte' : 'Vue liste',
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF9C27B0)),
-            )
-          : Column(
+      body: RefreshIndicator(
+        onRefresh: () => _loadLocations(),
+        color: const Color(0xFF9C27B0),
+        child: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(color: Color(0xFF9C27B0)),
+              )
+            : Column(
               children: [
                 // Header
                 Container(
@@ -115,16 +170,30 @@ class _GeolocationStatsPageState extends State<GeolocationStatsPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              _locations.length.toString(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 36,
-                                fontWeight: FontWeight.w900,
-                              ),
+                            Row(
+                              children: [
+                                Text(
+                                  (_publications.length + _locations.length).toString(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 36,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                // ✅ AJOUT - Indicateur de mise à jour
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: Colors.greenAccent,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ],
                             ),
                             const Text(
-                              'Employés géolocalisés',
+                              'Positions en temps réel',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 14,
@@ -146,6 +215,7 @@ class _GeolocationStatsPageState extends State<GeolocationStatsPage> {
                 ),
               ],
             ),
+      ),
     );
   }
 

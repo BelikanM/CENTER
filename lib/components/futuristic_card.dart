@@ -42,20 +42,6 @@ class FuturisticCard extends StatelessWidget {
                   width: 2,
                 )
               : null,
-          boxShadow: showShadow
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFF00FF88).withValues(alpha: 0.2),
-                    blurRadius: 15,
-                    offset: const Offset(0, 8),
-                  ),
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 25,
-                    offset: const Offset(0, 15),
-                  ),
-                ]
-              : null,
         ),
         child: child,
       ),

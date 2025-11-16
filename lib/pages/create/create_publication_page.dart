@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
@@ -34,12 +35,60 @@ class _CreatePublicationPageState extends State<CreatePublicationPage> {
   Future<void> _pickMedia(ImageSource source, bool isVideo) async {
     try {
       if (isVideo) {
-        final XFile? video = await _picker.pickVideo(source: source);
+        final XFile? video = await _picker.pickVideo(
+          source: source,
+          maxDuration: const Duration(minutes: 10), // Durée max 10 minutes
+        );
         if (video != null && mounted) {
+          // Vérifier l'extension du fichier
+          final extension = video.path.split('.').last.toLowerCase();
+          final allowedExtensions = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'];
+          
+          if (!allowedExtensions.contains(extension)) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Format vidéo non supporté. Formats acceptés: ${allowedExtensions.join(", ")}'),
+                  backgroundColor: Colors.orange,
+                  duration: const Duration(seconds: 4),
+                ),
+              );
+            }
+            return;
+          }
+          
+          // Vérifier la taille du fichier (max 50 MB)
+          final file = File(video.path);
+          final fileSize = await file.length();
+          const maxSize = 50 * 1024 * 1024; // 50 MB
+          
+          if (fileSize > maxSize) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('La vidéo est trop volumineuse (max 50 MB)'),
+                  backgroundColor: Colors.orange,
+                  duration: Duration(seconds: 4),
+                ),
+              );
+            }
+            return;
+          }
+          
           setState(() {
-            _selectedMedia.add(File(video.path));
+            _selectedMedia.add(file);
             _selectedType = 'video';
           });
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Vidéo ajoutée avec succès'),
+                backgroundColor: Color(0xFF25D366),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
         }
       } else {
         final List<XFile> images = await _picker.pickMultiImage();
@@ -50,10 +99,30 @@ class _CreatePublicationPageState extends State<CreatePublicationPage> {
           });
         }
       }
+    } on PlatformException catch (e) {
+      if (mounted) {
+        String errorMessage = 'Erreur lors de la sélection';
+        if (e.code == 'photo_access_denied' || e.code == 'camera_access_denied') {
+          errorMessage = 'Permission refusée. Veuillez autoriser l\'accès dans les paramètres';
+        } else if (e.code == 'invalid_video') {
+          errorMessage = 'Format vidéo invalide ou corrompu';
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
         );
       }
     }

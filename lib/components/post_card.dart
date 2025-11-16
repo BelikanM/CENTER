@@ -4,6 +4,7 @@ import 'package:video_thumbnail/video_thumbnail.dart';
 import 'dart:typed_data';
 import 'futuristic_card.dart';
 import 'media_player.dart';
+import '../pages/map_view_page.dart'; // ✅ AJOUT - Pour ouvrir la carte MapStreet
 
 class PostCard extends StatefulWidget {
   final String userName;
@@ -24,6 +25,8 @@ class PostCard extends StatefulWidget {
   final VoidCallback? onSave;
   final VoidCallback? onDelete;
   final bool isOwner;
+  final double? latitude; // ✅ AJOUT - Latitude de la géolocalisation
+  final double? longitude; // ✅ AJOUT - Longitude de la géolocalisation
 
   const PostCard({
     super.key,
@@ -45,6 +48,8 @@ class PostCard extends StatefulWidget {
     this.onSave,
     this.onDelete,
     this.isOwner = false,
+    this.latitude, // ✅ AJOUT
+    this.longitude, // ✅ AJOUT
   });
 
   @override
@@ -87,6 +92,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
         children: [
           _buildHeader(),
           _buildContent(),
+          if (widget.latitude != null && widget.longitude != null) _buildLocation(), // ✅ AJOUT - Afficher la localisation
           if (widget.imageUrl != null) _buildMedia(),
           _buildActions(),
         ],
@@ -222,6 +228,96 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
           color: Colors.black,
           fontSize: 15,
           height: 1.4,
+        ),
+      ),
+    );
+  }
+
+  // ✅ NOUVELLE MÉTHODE - Afficher la localisation GPS
+  Widget _buildLocation() {
+    return GestureDetector(
+      onTap: () => _openMapStreet(widget.latitude!, widget.longitude!),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF00FF88).withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: const Color(0xFF00FF88).withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF00FF88),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.location_on_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Localisation',
+                    style: TextStyle(
+                      color: Colors.black87,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${widget.latitude!.toStringAsFixed(6)}, ${widget.longitude!.toStringAsFixed(6)}',
+                    style: const TextStyle(
+                      color: Colors.black54,
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.open_in_new_rounded,
+              color: Color(0xFF00FF88),
+              size: 18,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ✅ NOUVELLE MÉTHODE - Ouvrir la carte MapStreet
+  void _openMapStreet(double latitude, double longitude) {
+    // Afficher un message avec les coordonnées
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '📍 Coordonnées: ${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}',
+          style: const TextStyle(fontFamily: 'monospace'),
+        ),
+        backgroundColor: const Color(0xFF00FF88),
+        duration: const Duration(seconds: 3),
+        action: SnackBarAction(
+          label: 'Voir Carte',
+          textColor: Colors.white,
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const MapViewPage()),
+            );
+          },
         ),
       ),
     );

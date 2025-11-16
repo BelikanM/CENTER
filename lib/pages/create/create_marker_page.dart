@@ -3,6 +3,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:geolocator/geolocator.dart'; // ✅ AJOUT - Pour la géolocalisation réelle
+import 'package:permission_handler/permission_handler.dart'; // ✅ AJOUT - Pour les permissions
 import 'dart:io';
 import '../../main.dart';
 import '../../api_service.dart';
@@ -20,10 +22,12 @@ class _CreateMarkerPageState extends State<CreateMarkerPage> {
   final _commentController = TextEditingController();
   final MapController _mapController = MapController();
   
-  LatLng _selectedPosition = LatLng(48.8566, 2.3522); // Paris par défaut
+  LatLng? _selectedPosition; // ✅ MODIFIÉ - null par défaut
   Color _selectedColor = Colors.red;
   final List<File> _selectedPhotos = [];
   bool _isLoading = false;
+  bool _isLoadingLocation = true; // ✅ AJOUT - Indicateur de chargement GPS
+  String _locationStatus = 'Recherche de votre position...'; // ✅ AJOUT - Statut GPS
 
   final ImagePicker _picker = ImagePicker();
 
@@ -39,10 +43,165 @@ class _CreateMarkerPageState extends State<CreateMarkerPage> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _requestLocationAndGetPosition(); // ✅ AJOUT - Demander la position GPS au démarrage
+  }
+
+  @override
   void dispose() {
     _titleController.dispose();
     _commentController.dispose();
     super.dispose();
+  }
+
+  // ✅ NOUVELLE MÉTHODE - Demander la permission et obtenir la position GPS réelle
+  Future<void> _requestLocationAndGetPosition() async {
+    setState(() {
+      _isLoadingLocation = true;
+      _locationStatus = 'Vérification des permissions...';
+    });
+
+    try {
+      // 1. Vérifier la permission de localisation
+      PermissionStatus permission = await Permission.location.status;
+      
+      if (permission.isDenied) {
+        setState(() => _locationStatus = 'Demande d\'autorisation...');
+        permission = await Permission.location.request();
+      }
+
+      if (permission.isPermanentlyDenied) {
+        setState(() {
+          _locationStatus = '❌ Permission refusée. Activez la dans les paramètres.';
+          _isLoadingLocation = false;
+        });
+        _showLocationSettingsDialog();
+        return;
+      }
+
+      if (permission.isDenied) {
+        setState(() {
+          _locationStatus = '❌ Permission de localisation refusée';
+          _isLoadingLocation = false;
+        });
+        return;
+      }
+
+      // 2. Vérifier si le service de localisation est activé
+      setState(() => _locationStatus = 'Vérification du GPS...');
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      
+      if (!serviceEnabled) {
+        setState(() {
+          _locationStatus = '❌ GPS désactivé. Activez-le dans les paramètres.';
+          _isLoadingLocation = false;
+        });
+        _showEnableLocationDialog();
+        return;
+      }
+
+      // 3. Obtenir la position GPS réelle
+      setState(() => _locationStatus = 'Obtention de votre position GPS...');
+      
+      Position position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high, // ✅ Haute précision
+          distanceFilter: 10, // Mise à jour tous les 10 mètres
+        ),
+      );
+
+      // 4. Mettre à jour la position sur la carte
+      setState(() {
+        _selectedPosition = LatLng(position.latitude, position.longitude);
+        _locationStatus = '✅ Position GPS obtenue';
+        _isLoadingLocation = false;
+      });
+
+      // 5. Centrer la carte sur la position réelle (après le setState)
+      // Attendre que le widget soit reconstruit avant de bouger la carte
+      if (_selectedPosition != null && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          try {
+            _mapController.move(_selectedPosition!, 15.0);
+          } catch (e) {
+            debugPrint('⚠️ Impossible de centrer la carte: $e');
+          }
+        });
+      }
+
+      debugPrint('✅ Position GPS: ${position.latitude}, ${position.longitude}');
+      debugPrint('📍 Précision: ${position.accuracy}m');
+      
+    } catch (e) {
+      debugPrint('❌ Erreur géolocalisation: $e');
+      setState(() {
+        _locationStatus = '❌ Erreur: $e';
+        _isLoadingLocation = false;
+      });
+      
+      _showSnackBar('Erreur de géolocalisation: $e', isError: true);
+    }
+  }
+
+  // ✅ NOUVELLE MÉTHODE - Dialogue pour activer le GPS
+  void _showEnableLocationDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('GPS désactivé'),
+        content: const Text('Veuillez activer le GPS pour utiliser cette fonctionnalité.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Geolocator.openLocationSettings();
+            },
+            child: const Text('Ouvrir paramètres'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ NOUVELLE MÉTHODE - Dialogue pour activer les permissions
+  void _showLocationSettingsDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Permission refusée'),
+        content: const Text('Veuillez autoriser l\'accès à la localisation dans les paramètres de l\'application.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              openAppSettings();
+            },
+            child: const Text('Ouvrir paramètres'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ NOUVELLE MÉTHODE - Afficher snackbar
+  void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : const Color(0xFF25D366),
+        duration: Duration(seconds: isError ? 4 : 2),
+      ),
+    );
   }
 
   Future<void> _pickPhotos() async {
@@ -71,6 +230,11 @@ class _CreateMarkerPageState extends State<CreateMarkerPage> {
   Future<void> _createMarker() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (_selectedPosition == null) { // ✅ Vérification GPS
+      _showSnackBar('❌ Veuillez attendre que la position GPS soit obtenue', isError: true);
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -83,8 +247,8 @@ class _CreateMarkerPageState extends State<CreateMarkerPage> {
 
       await ApiService.createMarker(
         token,
-        latitude: _selectedPosition.latitude,
-        longitude: _selectedPosition.longitude,
+        latitude: _selectedPosition!.latitude, // ✅ Ajout ! car déjà vérifié
+        longitude: _selectedPosition!.longitude, // ✅ Ajout ! car déjà vérifié
         title: _titleController.text.trim(),
         comment: _commentController.text.trim(),
         color: '#${_selectedColor.toARGB32().toRadixString(16).substring(2, 8).toUpperCase()}',
@@ -92,22 +256,12 @@ class _CreateMarkerPageState extends State<CreateMarkerPage> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Marqueur créé avec succès !'),
-            backgroundColor: Color(0xFF25D366),
-          ),
-        );
+        _showSnackBar('✅ Marqueur créé avec succès !');
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showSnackBar('❌ Erreur: $e', isError: true);
       }
     } finally {
       if (mounted) {
@@ -166,8 +320,8 @@ class _CreateMarkerPageState extends State<CreateMarkerPage> {
                   FlutterMap(
                     mapController: _mapController,
                     options: MapOptions(
-                      initialCenter: _selectedPosition,
-                      initialZoom: 13.0,
+                      initialCenter: _selectedPosition ?? LatLng(48.8566, 2.3522), // ✅ Fallback si null
+                      initialZoom: 15.0,
                       onTap: (tapPosition, point) {
                         setState(() {
                           _selectedPosition = point;
@@ -176,23 +330,25 @@ class _CreateMarkerPageState extends State<CreateMarkerPage> {
                     ),
                     children: [
                       TileLayer(
-                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.example.center',
+                        urlTemplate: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', // ✅ CHANGÉ - Carto au lieu de OpenStreetMap
+                        subdomains: const ['a', 'b', 'c'],
+                        userAgentPackageName: 'com.example.app',
                       ),
-                      MarkerLayer(
-                        markers: [
-                          Marker(
-                            width: 40.0,
-                            height: 40.0,
-                            point: _selectedPosition,
-                            child: Icon(
-                              Icons.location_on,
-                              color: _selectedColor,
-                              size: 40,
+                      if (_selectedPosition != null) // ✅ Vérification null
+                        MarkerLayer(
+                          markers: [
+                            Marker(
+                              point: _selectedPosition!, // ✅ Ajout ! car déjà vérifié
+                              width: 40.0,
+                              height: 40.0,
+                              child: Icon(
+                                Icons.location_on,
+                                color: _selectedColor,
+                                size: 40,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
                     ],
                   ),
                   Positioned(
@@ -204,13 +360,6 @@ class _CreateMarkerPageState extends State<CreateMarkerPage> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.1),
-                            blurRadius: 10,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -225,8 +374,10 @@ class _CreateMarkerPageState extends State<CreateMarkerPage> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Lat: ${_selectedPosition.latitude.toStringAsFixed(6)}, '
-                            'Lng: ${_selectedPosition.longitude.toStringAsFixed(6)}',
+                            _selectedPosition != null // ✅ Vérification null
+                                ? 'Lat: ${_selectedPosition!.latitude.toStringAsFixed(6)}, '
+                                  'Lng: ${_selectedPosition!.longitude.toStringAsFixed(6)}'
+                                : 'Position GPS non disponible',
                             style: TextStyle(
                               fontSize: 11,
                               color: Colors.grey[600],
@@ -247,6 +398,59 @@ class _CreateMarkerPageState extends State<CreateMarkerPage> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  // ✅ AJOUT - Statut GPS
+                  if (_isLoadingLocation)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              _locationStatus,
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              _locationStatus,
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: _requestLocationAndGetPosition,
+                            icon: const Icon(Icons.refresh, size: 16),
+                            label: const Text('Actualiser', style: TextStyle(fontSize: 12)),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  const SizedBox(height: 16),
+
                   // Titre
                   _buildSectionTitle('Titre du marqueur'),
                   const SizedBox(height: 8),
