@@ -163,30 +163,80 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             children: [
               Row(
                 children: [
-                  // Logo SETRAF dans un cercle
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF00FF88), Color(0xFF00CC66)],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF00FF88).withValues(alpha: 0.3),
-                          blurRadius: 20,
-                          spreadRadius: 2,
+                  // Logo SETRAF dans un cercle avec badge de notification
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF00FF88), Color(0xFF00CC66)],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF00FF88).withValues(alpha: 0.3),
+                              blurRadius: 20,
+                              spreadRadius: 2,
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    padding: const EdgeInsets.all(8),
-                    child: ClipOval(
-                      child: Image.asset(
-                        'assets/images/app_logo.png',
-                        fit: BoxFit.contain,
+                        padding: const EdgeInsets.all(8),
+                        child: ClipOval(
+                          child: Image.asset(
+                            'assets/images/app_logo.png',
+                            fit: BoxFit.contain,
+                          ),
+                        ),
                       ),
-                    ),
+                      // Badge de notification style TikTok/Facebook
+                      if (_notificationsCount > 0)
+                        Positioned(
+                          right: -4,
+                          top: -4,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFFF0050), Color(0xFFFF3366)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 2.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.red.withValues(alpha: 0.5),
+                                  blurRadius: 8,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 22,
+                              minHeight: 22,
+                            ),
+                            child: Text(
+                              _notificationsCount > 99 ? '99+' : _notificationsCount.toString(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w900,
+                                height: 1.2,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -244,34 +294,44 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                           ),
                         ),
                       ),
-                      // Badge avec le nombre de notifications
+                      // Badge avec le nombre de notifications (style moderne)
                       if (_notificationsCount > 0)
                         Positioned(
-                          right: 8,
-                          top: 8,
+                          right: 6,
+                          top: 6,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
+                              horizontal: 5,
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.red,
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFFF0050), Color(0xFFFF3366)],
+                              ),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
                                 color: Colors.white,
                                 width: 2,
                               ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.red.withValues(alpha: 0.4),
+                                  blurRadius: 6,
+                                  spreadRadius: 1,
+                                ),
+                              ],
                             ),
                             constraints: const BoxConstraints(
-                              minWidth: 18,
-                              minHeight: 18,
+                              minWidth: 20,
+                              minHeight: 20,
                             ),
                             child: Text(
                               _notificationsCount > 99 ? '99+' : _notificationsCount.toString(),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 10,
-                                fontWeight: FontWeight.bold,
+                                fontWeight: FontWeight.w900,
+                                height: 1.2,
                               ),
                               textAlign: TextAlign.center,
                             ),
