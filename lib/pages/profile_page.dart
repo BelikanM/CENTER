@@ -26,12 +26,17 @@ class _ProfilePageState extends State<ProfilePage> {
   final ImagePicker _picker = ImagePicker();
   late String _selectedImage;
   final BackgroundImageManager _imageManager = BackgroundImageManager();
+  
+  // Statistiques de stockage
+  Map<String, dynamic>? _storageInfo;
+  bool _isLoadingStorage = false;
 
   @override
   void initState() {
     super.initState();
     _selectedImage = _imageManager.getImageForPage('profile'); // Image élégante
     _loadUserStats();
+    _loadStorageInfo();
   }
   Future<void> _loadUserStats() async {
     // Éviter les appels simultanés - VÉRIFIER EN PREMIER
@@ -86,6 +91,38 @@ class _ProfilePageState extends State<ProfilePage> {
       debugPrint('❌ Erreur chargement stats: $e');
       if (mounted) {
         setState(() => _isLoadingStats = false);
+      }
+    }
+  }
+
+  /// Charger les informations de stockage
+  Future<void> _loadStorageInfo() async {
+    if (_isLoadingStorage) return;
+
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final token = appProvider.accessToken;
+
+    if (token == null) {
+      debugPrint('⚠️ Token manquant pour stockage');
+      return;
+    }
+
+    setState(() => _isLoadingStorage = true);
+
+    try {
+      final result = await ApiService.getUserStorage(token);
+      debugPrint('💾 Stockage reçu: $result');
+
+      if (mounted && result['success'] == true) {
+        setState(() {
+          _storageInfo = result['storage'];
+          _isLoadingStorage = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur chargement stockage: $e');
+      if (mounted) {
+        setState(() => _isLoadingStorage = false);
       }
     }
   }
@@ -413,6 +450,8 @@ class _ProfilePageState extends State<ProfilePage> {
                     _buildProfileHeader(context, user),
                     const SizedBox(height: 16), // Réduit de 24 à 16
                     _buildQuickStats(context, appProvider),
+                    const SizedBox(height: 16), // Réduit de 24 à 16
+                    _buildStorageSection(), // Section de stockage
                     const SizedBox(height: 16), // Réduit de 24 à 16
                     const ThemeSelector(), // Sélecteur de thème
                     const SizedBox(height: 16), // Réduit de 24 à 16
@@ -777,6 +816,306 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Section de stockage avec barre de progression
+  Widget _buildStorageSection() {
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, _) {
+        if (_isLoadingStorage) {
+          return FuturisticCard(
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              child: const Center(
+                child: CircularProgressIndicator(
+                  color: Color(0xFF00D4FF),
+                ),
+              ),
+            ),
+          );
+        }
+
+        final storage = _storageInfo;
+        if (storage == null) {
+          return const SizedBox.shrink();
+        }
+
+        final usedGB = double.parse(storage['usedGB'] ?? '0');
+        final limitGB = storage['limitGB'] ?? 5;
+        final availableGB = double.parse(storage['availableGB'] ?? '0');
+        final percentage = (storage['percentageUsed'] ?? 0.0).toDouble();
+        final mediaCount = storage['mediaCount'] ?? 0;
+        final mediaTypes = storage['mediaTypes'] ?? {};
+        final images = mediaTypes['images'] ?? 0;
+        final videos = mediaTypes['videos'] ?? 0;
+        final audio = mediaTypes['audio'] ?? 0;
+        final documents = mediaTypes['documents'] ?? 0;
+
+        // Couleur selon l'utilisation
+        Color progressColor;
+        if (percentage < 50) {
+          progressColor = const Color(0xFF00FF88); // Vert
+        } else if (percentage < 80) {
+          progressColor = const Color(0xFFFFAA00); // Orange
+        } else {
+          progressColor = const Color(0xFFFF4444); // Rouge
+        }
+
+        return FuturisticCard(
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // En-tête
+                Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [progressColor, progressColor.withValues(alpha: 0.6)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.cloud_outlined,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Stockage Cloud',
+                            style: TextStyle(
+                              color: themeProvider.textColor,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '$mediaCount médias stockés',
+                            style: TextStyle(
+                              color: themeProvider.textSecondaryColor,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.refresh,
+                        color: themeProvider.primaryColor,
+                      ),
+                      onPressed: _loadStorageInfo,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                
+                // Barre de progression
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${usedGB.toStringAsFixed(2)} GB',
+                          style: TextStyle(
+                            color: themeProvider.textColor,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'sur $limitGB GB',
+                          style: TextStyle(
+                            color: themeProvider.textSecondaryColor,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Stack(
+                        children: [
+                          Container(
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          FractionallySizedBox(
+                            widthFactor: (percentage / 100).clamp(0.0, 1.0),
+                            child: Container(
+                              height: 12,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [progressColor, progressColor.withValues(alpha: 0.7)],
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: progressColor.withValues(alpha: 0.4),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${percentage.toStringAsFixed(1)}% utilisé',
+                          style: TextStyle(
+                            color: progressColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          '${availableGB.toStringAsFixed(2)} GB disponible',
+                          style: TextStyle(
+                            color: themeProvider.textSecondaryColor,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(height: 24),
+                Divider(color: Colors.white.withValues(alpha: 0.1)),
+                const SizedBox(height: 16),
+                
+                // Répartition par type de média
+                Text(
+                  'Répartition des médias',
+                  style: TextStyle(
+                    color: themeProvider.textColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildMediaTypeCard(
+                        icon: Icons.image,
+                        label: 'Images',
+                        count: images,
+                        color: const Color(0xFF00D4FF),
+                        themeProvider: themeProvider,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildMediaTypeCard(
+                        icon: Icons.videocam,
+                        label: 'Vidéos',
+                        count: videos,
+                        color: const Color(0xFFFF4444),
+                        themeProvider: themeProvider,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildMediaTypeCard(
+                        icon: Icons.audiotrack,
+                        label: 'Audio',
+                        count: audio,
+                        color: const Color(0xFF00FF88),
+                        themeProvider: themeProvider,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildMediaTypeCard(
+                        icon: Icons.description,
+                        label: 'Docs',
+                        count: documents,
+                        color: const Color(0xFFFFAA00),
+                        themeProvider: themeProvider,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMediaTypeCard({
+    required IconData icon,
+    required String label,
+    required int count,
+    required Color color,
+    required ThemeProvider themeProvider,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: color.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 8),
+          Text(
+            count.toString(),
+            style: TextStyle(
+              color: themeProvider.textColor,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: themeProvider.textSecondaryColor,
+              fontSize: 12,
+            ),
+          ),
+        ],
       ),
     );
   }

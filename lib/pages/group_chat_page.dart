@@ -164,6 +164,14 @@ class _GroupChatPageState extends State<GroupChatPage> with TickerProviderStateM
     } catch (e) {
       debugPrint('Erreur chargement messages: $e');
       setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur de chargement des messages: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -180,6 +188,7 @@ class _GroupChatPageState extends State<GroupChatPage> with TickerProviderStateM
       });
     } catch (e) {
       debugPrint('Erreur chargement utilisateurs en ligne: $e');
+      // Ignorer l'erreur silencieusement pour ne pas perturber l'UX
     }
   }
 

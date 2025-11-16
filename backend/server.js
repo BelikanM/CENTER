@@ -3043,6 +3043,82 @@ app.get('/api/stats', verifyToken, async (req, res) => {
   }
 });
 
+// Récupérer les statistiques de stockage de l'utilisateur
+app.get('/api/users/me/storage', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'Utilisateur non trouvé' });
+    }
+
+    // Limite de stockage : 5 GB par utilisateur
+    const STORAGE_LIMIT = 5 * 1024 * 1024 * 1024; // 5 GB en bytes
+
+    // Récupérer toutes les publications de l'utilisateur avec médias
+    const publications = await Publication.find({ 
+      userId: req.user.userId,
+      isActive: true 
+    }).select('media');
+
+    let totalSize = 0;
+    let mediaCount = 0;
+    const mediaTypes = { images: 0, videos: 0, audio: 0, documents: 0 };
+
+    // Calculer la taille totale des médias
+    for (const publication of publications) {
+      if (publication.media && publication.media.length > 0) {
+        for (const media of publication.media) {
+          mediaCount++;
+          
+          // Compter par type
+          if (media.type === 'image') mediaTypes.images++;
+          else if (media.type === 'video') mediaTypes.videos++;
+          else if (media.type === 'audio') mediaTypes.audio++;
+          else mediaTypes.documents++;
+
+          // Calculer la taille du fichier
+          if (media.filename) {
+            const filePath = path.join(__dirname, 'uploads', 'publications', media.filename);
+            try {
+              if (fs.existsSync(filePath)) {
+                const stats = fs.statSync(filePath);
+                totalSize += stats.size;
+              }
+            } catch (err) {
+              console.error(`Erreur lecture fichier ${media.filename}:`, err);
+            }
+          }
+        }
+      }
+    }
+
+    // Calculer le pourcentage utilisé
+    const percentageUsed = ((totalSize / STORAGE_LIMIT) * 100).toFixed(2);
+
+    res.json({
+      success: true,
+      storage: {
+        used: totalSize, // en bytes
+        usedMB: (totalSize / (1024 * 1024)).toFixed(2), // en MB
+        usedGB: (totalSize / (1024 * 1024 * 1024)).toFixed(2), // en GB
+        limit: STORAGE_LIMIT,
+        limitGB: 5,
+        available: STORAGE_LIMIT - totalSize,
+        availableGB: ((STORAGE_LIMIT - totalSize) / (1024 * 1024 * 1024)).toFixed(2),
+        percentageUsed: parseFloat(percentageUsed),
+        mediaCount: mediaCount,
+        mediaTypes: mediaTypes
+      }
+    });
+  } catch (err) {
+    console.error('Erreur récupération stockage:', err);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur serveur lors de la récupération du stockage' 
+    });
+  }
+});
+
 app.get('/api/users', verifyToken, verifyCanManageUsers, async (req, res) => {
   const users = await User.find().select('-password -otp -otpExpires');
   const usersData = users.map(user => user.toObject());

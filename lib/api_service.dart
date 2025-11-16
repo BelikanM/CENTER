@@ -1890,6 +1890,28 @@ class ApiService {
     }
   }
 
+  // Récupérer les statistiques de stockage de l'utilisateur
+  static Future<Map<String, dynamic>> getUserStorage(String token) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl$apiPrefix/users/me/storage'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de récupération du stockage');
+      }
+    } catch (e) {
+      developer.log('❌ Erreur getUserStorage: $e', name: 'ApiService');
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
   // Lister les utilisateurs
   static Future<Map<String, dynamic>> getUsers(String token) async {
     await _ensureInitialized();

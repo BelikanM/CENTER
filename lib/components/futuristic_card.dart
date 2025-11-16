@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../theme/theme_provider.dart';
 
 class FuturisticCard extends StatelessWidget {
   final Widget child;
@@ -24,15 +22,12 @@ class FuturisticCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = Provider.of<ThemeProvider>(context);
-    final theme = themeProvider.currentTheme;
-    
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
       child: Container(
         padding: padding,
         decoration: BoxDecoration(
-          color: backgroundColor ?? theme.surface,
+          color: backgroundColor ?? const Color(0xFF000000).withValues(alpha: 0.4), // ✅ Noir transparent sans effet vitré
           gradient: gradientColors != null
               ? LinearGradient(
                   colors: gradientColors!,
@@ -43,7 +38,7 @@ class FuturisticCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(borderRadius),
           border: showBorder
               ? Border.all(
-                  color: theme.primary,
+                  color: const Color(0xFF00FF88),
                   width: 2,
                 )
               : null,

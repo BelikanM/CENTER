@@ -13,6 +13,7 @@ import 'map_view_page.dart';
 import 'admin_page.dart';
 import 'notifications_list_page.dart';
 import 'create/create_employee_page.dart';
+import 'comments_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -31,7 +32,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   int _publicationsCount = 0;
   int _markersCount = 0;
   int _notificationsCount = 0;
+  
+  // Publications récentes pour les commentaires
   List<Map<String, dynamic>> _recentPublications = [];
+  bool _isLoadingPublications = false;
 
   @override
   void initState() {
@@ -39,8 +43,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     // Sélectionner une image aléatoire au démarrage
     _selectedImage = _imageManager.getImageForPage('home');
 
-    // Charger les statistiques
+    // Charger les statistiques et les publications récentes
     _loadStats();
+    _loadRecentPublications();
   }
 
   /// Charger toutes les statistiques depuis l'API
@@ -82,14 +87,41 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         debugPrint('❌ Erreur chargement notifications: $e');
       }
 
-      // Charger les publications récentes PERSONNELLES
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingStats = false);
+      }
+    }
+  }
+
+  /// Charger les publications récentes pour la section commentaires
+  Future<void> _loadRecentPublications() async {
+    if (!mounted) return;
+    
+    setState(() => _isLoadingPublications = true);
+    
+    try {
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      final token = appProvider.accessToken;
+      
+      if (token == null) return;
+
+      // Charger les publications récentes de tous les utilisateurs
       try {
-        final pubsResult = await ApiService.getMyPublications(token, page: 1, limit: 5);
-        if (pubsResult['success'] == true && mounted) {
-          final pubs = pubsResult['publications'] as List? ?? [];
+        final result = await ApiService.getPublications(token, page: 1, limit: 5);
+        debugPrint('📊 Publications reçues: $result');
+        
+        if (mounted && result['success'] == true) {
+          final pubs = result['publications'] as List? ?? [];
+          debugPrint('✅ Nombre de publications: ${pubs.length}');
+          
           setState(() {
             _recentPublications = pubs.take(5).map((p) => p as Map<String, dynamic>).toList();
           });
+          
+          debugPrint('✅ Publications chargées: $_recentPublications');
+        } else {
+          debugPrint('⚠️ Résultat invalide ou pas de succès');
         }
       } catch (e) {
         debugPrint('❌ Erreur chargement publications récentes: $e');
@@ -97,7 +129,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
     } finally {
       if (mounted) {
-        setState(() => _isLoadingStats = false);
+        setState(() => _isLoadingPublications = false);
       }
     }
   }
@@ -129,7 +161,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       const SizedBox(height: 32),
                       _buildQuickActions(),
                       const SizedBox(height: 32),
-                      _buildRecentActivity(),
+                      _buildRecentPublications(),
                       SizedBox(height: 100 + MediaQuery.of(context).padding.bottom),
                     ]),
                   ),
@@ -603,95 +635,290 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildRecentActivity() {
+  Widget _buildRecentPublications() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Activité récente',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Publications récentes',
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            if (_recentPublications.isNotEmpty)
+              TextButton.icon(
+                onPressed: _loadRecentPublications,
+                icon: Icon(
+                  Icons.refresh,
+                  color: Color(0xFF00D4FF),
+                  size: 18,
+                ),
+                label: Text(
+                  'Actualiser',
+                  style: TextStyle(
+                    color: Color(0xFF00D4FF),
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 16),
         FuturisticCard(
-          child: _recentPublications.isEmpty
+          child: _isLoadingPublications
               ? Padding(
                   padding: const EdgeInsets.all(32),
                   child: Center(
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.article_outlined,
-                          size: 48,
-                          color: Colors.black26,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Aucune activité récente',
-                          style: TextStyle(
-                            color: Colors.black54,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF00D4FF),
                     ),
                   ),
                 )
-              : Column(
-                  children: _recentPublications.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final pub = entry.value;
-                    
-                    final userId = pub['userId'];
-                    final userName = userId is Map ? userId['name'] ?? 'Utilisateur' : 'Utilisateur';
-                    final text = pub['text'] ?? '';
-                    final createdAt = pub['createdAt'] != null
-                        ? DateTime.parse(pub['createdAt'])
-                        : DateTime.now();
-                    final timeAgo = _formatTimeAgo(createdAt);
-                    final hasLocation = pub['location'] != null;
-                    final likesCount = (pub['likes'] as List?)?.length ?? 0;
-                    final commentsCount = (pub['comments'] as List?)?.length ?? 0;
-
-                    return Column(
-                      children: [
-                        if (index > 0) Divider(color: Colors.black.withValues(alpha: 0.1)),
-                        _buildActivityItem(
-                          icon: hasLocation ? Icons.location_on_rounded : Icons.article_rounded,
-                          title: userName,
-                          subtitle: text.length > 50 ? '${text.substring(0, 50)}...' : text,
-                          time: timeAgo,
-                          color: hasLocation ? const Color(0xFF009944) : const Color(0xFF00CC66),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (likesCount > 0) ...[
-                                Icon(Icons.favorite, size: 16, color: Colors.red),
-                                const SizedBox(width: 4),
-                                Text(
-                                  likesCount.toString(),
-                                  style: TextStyle(fontSize: 12, color: Colors.black54),
-                                ),
-                                const SizedBox(width: 12),
-                              ],
-                              if (commentsCount > 0) ...[
-                                Icon(Icons.comment, size: 16, color: Color(0xFF00FF88)),
-                                const SizedBox(width: 4),
-                                Text(
-                                  commentsCount.toString(),
-                                  style: TextStyle(fontSize: 12, color: Colors.black54),
-                                ),
-                              ],
-                            ],
-                          ),
+              : _recentPublications.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.article_outlined,
+                              size: 48,
+                              color: Colors.black26,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Aucune publication',
+                              style: TextStyle(
+                                color: Colors.black54,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            TextButton(
+                              onPressed: _loadRecentPublications,
+                              child: Text(
+                                'Réessayer',
+                                style: TextStyle(color: Color(0xFF00D4FF)),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    );
-                  }).toList(),
-                ),
+                      ),
+                    )
+                  : Column(
+                      children: _recentPublications.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final publication = entry.value;
+                        
+                        final publicationId = publication['_id'] ?? 'unknown';
+                        final content = publication['content'] ?? publication['text'] ?? '';
+                        final userId = publication['userId'];
+                        final userName = userId is Map ? userId['name'] ?? 'Utilisateur' : 'Utilisateur';
+                        final profileImage = userId is Map ? userId['profileImage'] ?? '' : '';
+                        final media = publication['media'] as List? ?? [];
+                        final hasMedia = media.isNotEmpty;
+                        final firstMedia = hasMedia ? media[0] as Map<String, dynamic> : null;
+                        final mediaType = firstMedia?['type'] ?? '';
+                        final mediaUrl = firstMedia?['url'] ?? '';
+                        final commentsCount = (publication['comments'] as List?)?.length ?? 0;
+                        final likesCount = (publication['likes'] as List?)?.length ?? 0;
+                        final createdAt = publication['createdAt'] != null
+                            ? DateTime.parse(publication['createdAt'])
+                            : DateTime.now();
+                        final timeAgo = _formatTimeAgo(createdAt);
+
+                        return Column(
+                          children: [
+                            if (index > 0) Divider(color: Colors.black.withValues(alpha: 0.1), height: 1),
+                            InkWell(
+                              onTap: () {
+                                debugPrint('🔗 Navigation vers publication: $publicationId');
+                                // Ouvrir la page de commentaires
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => CommentsPage(
+                                      publicationId: publicationId,
+                                      publicationContent: content,
+                                    ),
+                                  ),
+                                ).then((_) {
+                                  // Actualiser après le retour
+                                  _loadRecentPublications();
+                                });
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Avatar utilisateur
+                                    CircleAvatar(
+                                      radius: 20,
+                                      backgroundImage: profileImage.isNotEmpty
+                                          ? NetworkImage(profileImage)
+                                          : null,
+                                      backgroundColor: const Color(0xFF00D4FF),
+                                      child: profileImage.isEmpty
+                                          ? const Icon(Icons.person, size: 20, color: Colors.white)
+                                          : null,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    // Contenu principal
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          // En-tête: nom et temps
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  userName,
+                                                  style: TextStyle(
+                                                    color: Colors.black,
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ),
+                                              Text(
+                                                timeAgo,
+                                                style: TextStyle(
+                                                  color: Colors.black54,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          // Texte de la publication
+                                          if (content.isNotEmpty)
+                                            Text(
+                                              content,
+                                              style: TextStyle(
+                                                color: Colors.black87,
+                                                fontSize: 14,
+                                                height: 1.4,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          // Aperçu média si présent
+                                          if (hasMedia) ...[
+                                            const SizedBox(height: 8),
+                                            Container(
+                                              height: 120,
+                                              decoration: BoxDecoration(
+                                                borderRadius: BorderRadius.circular(12),
+                                                color: Colors.black12,
+                                              ),
+                                              child: ClipRRect(
+                                                borderRadius: BorderRadius.circular(12),
+                                                child: Stack(
+                                                  fit: StackFit.expand,
+                                                  children: [
+                                                    if (mediaType == 'image' && mediaUrl.isNotEmpty)
+                                                      Image.network(
+                                                        mediaUrl,
+                                                        fit: BoxFit.cover,
+                                                        errorBuilder: (_, __, ___) => Icon(
+                                                          Icons.broken_image,
+                                                          color: Colors.black26,
+                                                        ),
+                                                      )
+                                                    else if (mediaType == 'video')
+                                                      Container(
+                                                        color: Colors.black87,
+                                                        child: Icon(
+                                                          Icons.play_circle_outline,
+                                                          size: 48,
+                                                          color: Colors.white,
+                                                        ),
+                                                      )
+                                                    else
+                                                      Icon(
+                                                        Icons.image,
+                                                        color: Colors.black26,
+                                                      ),
+                                                    if (media.length > 1)
+                                                      Positioned(
+                                                        top: 8,
+                                                        right: 8,
+                                                        child: Container(
+                                                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                          decoration: BoxDecoration(
+                                                            color: Colors.black54,
+                                                            borderRadius: BorderRadius.circular(12),
+                                                          ),
+                                                          child: Text(
+                                                            '+${media.length - 1}',
+                                                            style: TextStyle(
+                                                              color: Colors.white,
+                                                              fontSize: 12,
+                                                              fontWeight: FontWeight.bold,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                          const SizedBox(height: 12),
+                                          // Actions (likes, commentaires)
+                                          Row(
+                                            children: [
+                                              if (likesCount > 0) ...[
+                                                Icon(Icons.favorite, size: 16, color: Colors.red),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  likesCount.toString(),
+                                                  style: TextStyle(fontSize: 12, color: Colors.black54),
+                                                ),
+                                                const SizedBox(width: 16),
+                                              ],
+                                              Icon(
+                                                Icons.chat_bubble_outline,
+                                                size: 16,
+                                                color: Color(0xFF00D4FF),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                commentsCount > 0 
+                                                    ? '$commentsCount ${commentsCount > 1 ? "commentaires" : "commentaire"}'
+                                                    : 'Commenter',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Color(0xFF00D4FF),
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                              Spacer(),
+                                              Icon(
+                                                Icons.arrow_forward_ios,
+                                                color: Colors.black38,
+                                                size: 14,
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      }).toList(),
+                    ),
         ),
       ],
     );
@@ -713,82 +940,5 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     } else {
       return 'Il y a ${(difference.inDays / 7).floor()}sem';
     }
-  }
-
-  Widget _buildActivityItem({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required String time,
-    required Color color,
-    Widget? trailing,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: color.withValues(alpha: 0.3),
-                width: 1,
-              ),
-            ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: Colors.black87,
-                    fontSize: 14,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                time,
-                style: TextStyle(
-                  color: Colors.black54,
-                  fontSize: 12,
-                ),
-              ),
-              if (trailing != null) ...[
-                const SizedBox(height: 4),
-                trailing,
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
   }
 }
