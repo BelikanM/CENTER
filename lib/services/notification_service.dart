@@ -116,14 +116,22 @@ class NotificationService {
   }
 
   /// Mettre à jour le badge sur l'icône de l'application
-  /// Note: Sur Android, les badges sont automatiquement gérés par les notifications
   Future<void> updateAppBadge(int count) async {
     try {
+      // Note: Le badge natif sur l'icône de l'app nécessite un package compatible
+      // Pour l'instant, seul le badge in-app (navigation bar) est actif
       debugPrint('🔴 Badge count: $count notifications non lues');
-      // Sur Android, le badge est automatiquement géré par le système
-      // via les notifications actives avec showBadge: true
     } catch (e) {
       debugPrint('❌ Erreur mise à jour badge: $e');
+    }
+  }
+  
+  /// Retirer le badge de l'icône de l'application
+  Future<void> clearAppBadge() async {
+    try {
+      debugPrint('✅ Badge effacé');
+    } catch (e) {
+      debugPrint('❌ Erreur effacement badge: $e');
     }
   }
 

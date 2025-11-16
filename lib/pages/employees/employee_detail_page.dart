@@ -232,6 +232,8 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
                 decoration: InputDecoration(
                   labelText: 'Sujet',
                   labelStyle: const TextStyle(color: Colors.white70),
+                  filled: true,
+                  fillColor: const Color(0xFF0A0E21),
                   enabledBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
                     borderRadius: BorderRadius.circular(12),
@@ -250,6 +252,8 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
                 decoration: InputDecoration(
                   labelText: 'Message',
                   labelStyle: const TextStyle(color: Colors.white70),
+                  filled: true,
+                  fillColor: const Color(0xFF0A0E21),
                   enabledBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
                     borderRadius: BorderRadius.circular(12),
@@ -781,7 +785,7 @@ class _EmployeeDetailPageState extends State<EmployeeDetailPage> {
         DropdownButtonFormField<String>(
           initialValue: _selectedDepartment,
           dropdownColor: Colors.white,
-          style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.w500),
+          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
           decoration: InputDecoration(
             prefixIcon: const Icon(Icons.business_rounded, color: Color(0xFF00FF88), size: 20),
             filled: true,

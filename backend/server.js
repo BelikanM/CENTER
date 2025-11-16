@@ -1579,7 +1579,7 @@ app.get('/api/publications/geolocated', verifyToken, async (req, res) => {
       userId: pub.userId?._id,
       userName: pub.userId?.name || 'Utilisateur',
       userImage: pub.userId?.profileImage || '',
-      text: pub.content || '', // ✅ CORRECTION - 'content' pas 'text'
+      content: pub.content || '', // ✅ CORRECTION - 'content' (pas 'text')
       media: pub.media || [],
       location: pub.location || null,
       latitude: pub.location?.latitude, // ✅ Accès direct

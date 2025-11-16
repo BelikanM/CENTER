@@ -187,7 +187,7 @@ class _CreatePublicationPageState extends State<CreatePublicationPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: const Color(0xFF0A0E21),
       appBar: AppBar(
         elevation: 0,
         backgroundColor: const Color(0xFF25D366),
@@ -273,7 +273,7 @@ class _CreatePublicationPageState extends State<CreatePublicationPage> {
       style: const TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.w600,
-        color: Colors.black54,
+        color: Colors.white70,
       ),
     );
   }
@@ -297,10 +297,10 @@ class _CreatePublicationPageState extends State<CreatePublicationPage> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: isSelected ? const Color(0xFF25D366) : Colors.white,
+              color: isSelected ? const Color(0xFF25D366) : Colors.white.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: isSelected ? const Color(0xFF25D366) : Colors.grey[300]!,
+                color: isSelected ? const Color(0xFF25D366) : Colors.white.withValues(alpha: 0.2),
               ),
             ),
             child: Row(
@@ -309,13 +309,13 @@ class _CreatePublicationPageState extends State<CreatePublicationPage> {
                 Icon(
                   type['icon'] as IconData,
                   size: 18,
-                  color: isSelected ? Colors.white : Colors.black54,
+                  color: isSelected ? Colors.white : Colors.white70,
                 ),
                 const SizedBox(width: 8),
                 Text(
                   type['label'] as String,
                   style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.black87,
+                    color: isSelected ? Colors.white : Colors.white70,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                   ),
                 ),
@@ -330,28 +330,25 @@ class _CreatePublicationPageState extends State<CreatePublicationPage> {
   Widget _buildContentField() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(
+          color: const Color(0xFF00D4FF).withValues(alpha: 0.3),
+        ),
       ),
       child: TextFormField(
         controller: _contentController,
         maxLines: 8,
+        style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
           hintText: 'Que voulez-vous partager ?',
-          hintStyle: TextStyle(color: Colors.grey[400]),
+          hintStyle: const TextStyle(color: Colors.grey),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none,
           ),
           filled: true,
-          fillColor: Colors.white,
+          fillColor: Colors.transparent,
           contentPadding: const EdgeInsets.all(16),
         ),
         validator: (value) {
@@ -452,9 +449,9 @@ class _CreatePublicationPageState extends State<CreatePublicationPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[300]!),
+          border: Border.all(color: const Color(0xFF25D366).withValues(alpha: 0.3)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -466,7 +463,7 @@ class _CreatePublicationPageState extends State<CreatePublicationPage> {
               style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
-                color: Colors.black87,
+                color: Colors.white,
               ),
             ),
           ],
@@ -478,28 +475,25 @@ class _CreatePublicationPageState extends State<CreatePublicationPage> {
   Widget _buildTagsField() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(
+          color: const Color(0xFF25D366).withValues(alpha: 0.3),
+        ),
       ),
       child: TextFormField(
         controller: _tagsController,
-        decoration: InputDecoration(
+        style: const TextStyle(color: Colors.white),
+        decoration: const InputDecoration(
           hintText: 'Ex: technologie, innovation, entreprise',
-          hintStyle: TextStyle(color: Colors.grey[400]),
-          prefixIcon: const Icon(Icons.tag, color: Color(0xFF25D366)),
+          hintStyle: TextStyle(color: Colors.grey),
+          prefixIcon: Icon(Icons.tag, color: Color(0xFF25D366)),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.all(Radius.circular(12)),
             borderSide: BorderSide.none,
           ),
           filled: true,
-          fillColor: Colors.white,
+          fillColor: Colors.transparent,
         ),
       ),
     );
@@ -514,15 +508,11 @@ class _CreatePublicationPageState extends State<CreatePublicationPage> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.2),
+        ),
       ),
       child: Column(
         children: options.map((option) {
@@ -542,14 +532,14 @@ class _CreatePublicationPageState extends State<CreatePublicationPage> {
                 children: [
                   Icon(
                     option['icon'] as IconData,
-                    color: isSelected ? const Color(0xFF25D366) : Colors.black54,
+                    color: isSelected ? const Color(0xFF25D366) : Colors.white70,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       option['label'] as String,
                       style: TextStyle(
-                        color: Colors.black87,
+                        color: Colors.white,
                         fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                       ),
                     ),

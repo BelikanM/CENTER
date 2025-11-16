@@ -48,7 +48,7 @@ class EmployeeCard extends StatelessWidget {
                           child: Text(
                             name,
                             style: const TextStyle(
-                              color: Colors.black,
+                              color: Colors.white,
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
                             ),
@@ -60,8 +60,8 @@ class EmployeeCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       role,
-                      style: TextStyle(
-                        color: Colors.black87,
+                      style: const TextStyle(
+                        color: Colors.white,
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                       ),
@@ -69,25 +69,25 @@ class EmployeeCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       department,
-                      style: TextStyle(
-                        color: Colors.black54,
+                      style: const TextStyle(
+                        color: Colors.white70,
                         fontSize: 12,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.email_rounded,
-                          color: Colors.black54,
+                          color: Colors.white70,
                           size: 16,
                         ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
                             email,
-                            style: TextStyle(
-                              color: Colors.black54,
+                            style: const TextStyle(
+                              color: Colors.white70,
                               fontSize: 12,
                             ),
                             overflow: TextOverflow.ellipsis,
@@ -126,14 +126,14 @@ class EmployeeCard extends StatelessWidget {
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => const Icon(
                       Icons.person_rounded,
-                      color: Colors.black,
+                      color: Colors.white,
                       size: 30,
                     ),
                   ),
                 )
               : const Icon(
                   Icons.person_rounded,
-                  color: Colors.black,
+                  color: Colors.white,
                   size: 30,
                 ),
         ),

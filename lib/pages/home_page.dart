@@ -361,7 +361,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       Text(
                         'Bonjour,',
                         style: TextStyle(
-                          color: Colors.black87,
+                          color: Colors.white,
                           fontSize: 16,
                         ),
                       ),
@@ -383,7 +383,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       Text(
                         'Prêt à conquérir cette journée ?',
                         style: TextStyle(
-                          color: Colors.black87,
+                          color: Colors.white,
                           fontSize: 14,
                         ),
                       ),

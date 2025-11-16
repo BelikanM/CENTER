@@ -185,7 +185,7 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
           heroTag: 'add_employee',
           onPressed: _showAddEmployeeDialog,
           backgroundColor: const Color(0xFFFF6B35),
-          foregroundColor: Colors.black,
+          foregroundColor: Colors.white,
           icon: const Icon(Icons.person_add_rounded),
           label: const Text(
             'Ajouter',
@@ -221,7 +221,7 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
                 ),
                 child: const Icon(
                   Icons.business_center_rounded,
-                  color: Colors.black,
+                  color: Colors.white,
                   size: 24,
                 ),
               ),
@@ -287,6 +287,8 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
                   color: Colors.white.withValues(alpha: 0.5),
                 ),
                 border: InputBorder.none,
+                filled: true,
+                fillColor: Colors.transparent,
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 20,
                   vertical: 16,
@@ -322,7 +324,7 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
           borderRadius: BorderRadius.circular(12),
         ),
         indicatorSize: TabBarIndicatorSize.tab,
-        labelColor: Colors.black,
+        labelColor: Colors.white,
         unselectedLabelColor: Colors.white.withValues(alpha: 0.7),
         labelStyle: const TextStyle(
           fontWeight: FontWeight.w600,
@@ -693,7 +695,7 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
                 const SizedBox(height: 16),
                 Text(
                   'Erreur: ${snapshot.error}',
-                  style: const TextStyle(color: Colors.black87),
+                  style: const TextStyle(color: Colors.white),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -705,9 +707,14 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
         final total = stats['total'] ?? 0;
         final online = stats['online'] ?? 0;
         final departments = stats['departments'] ?? 0;
-        final withLocation = stats['withLocation'] ?? 0;
+        
+        // Statistiques des publications avec géolocalisation
+        final publicationsStats = stats['publications'] ?? {};
+        final totalPublications = publicationsStats['total'] ?? 0;
+        final withLocation = publicationsStats['withLocation'] ?? 0;
+        final publicationLocationRate = publicationsStats['locationRate'] ?? '0';
+        
         final activeRate = stats['activeRate'] ?? '0';
-        final locationRate = stats['locationRate'] ?? '0';
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -755,7 +762,7 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
                                 child: Text(
                                   total.toString(),
                                   style: const TextStyle(
-                                    color: Colors.black,
+                                    color: Colors.white,
                                     fontSize: 32,
                                     fontWeight: FontWeight.w900,
                                   ),
@@ -768,7 +775,7 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
                                 child: Text(
                                   'Employés au total',
                                   style: TextStyle(
-                                    color: Colors.black87,
+                                    color: Colors.white,
                                     fontSize: 15,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -780,7 +787,7 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
                         ),
                         const Icon(
                           Icons.arrow_forward_ios,
-                          color: Colors.black54,
+                          color: Colors.white70,
                           size: 18,
                         ),
                       ],
@@ -832,7 +839,7 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
                                 child: Text(
                                   online.toString(),
                                   style: const TextStyle(
-                                    color: Colors.black,
+                                    color: Colors.white,
                                     fontSize: 24,
                                     fontWeight: FontWeight.w900,
                                   ),
@@ -844,7 +851,7 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
                                 child: Text(
                                   'En ligne',
                                   style: TextStyle(
-                                    color: Colors.black87,
+                                    color: Colors.white,
                                     fontSize: 13,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -909,7 +916,7 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
                                 child: Text(
                                   departments.toString(),
                                   style: const TextStyle(
-                                    color: Colors.black,
+                                    color: Colors.white,
                                     fontSize: 24,
                                     fontWeight: FontWeight.w900,
                                   ),
@@ -921,7 +928,7 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
                                 child: Text(
                                   'Départements',
                                   style: TextStyle(
-                                    color: Colors.black87,
+                                    color: Colors.white,
                                     fontSize: 13,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -980,7 +987,7 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
                                 child: Text(
                                   withLocation.toString(),
                                   style: const TextStyle(
-                                    color: Colors.black,
+                                    color: Colors.white,
                                     fontSize: 28,
                                     fontWeight: FontWeight.w900,
                                   ),
@@ -991,9 +998,9 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
                                 fit: BoxFit.scaleDown,
                                 alignment: Alignment.centerLeft,
                                 child: Text(
-                                  'Avec géolocalisation',
+                                  'Publications géolocalisées',
                                   style: TextStyle(
-                                    color: Colors.black87,
+                                    color: Colors.white,
                                     fontSize: 15,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -1002,7 +1009,7 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '$locationRate% de couverture',
+                                '$withLocation sur $totalPublications • $publicationLocationRate%',
                                 style: const TextStyle(
                                   color: Color(0xFF9C27B0),
                                   fontSize: 12,
@@ -1014,7 +1021,7 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
                         ),
                         const Icon(
                           Icons.arrow_forward_ios,
-                          color: Colors.black54,
+                          color: Colors.white70,
                           size: 18,
                         ),
                       ],
@@ -1412,7 +1419,7 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
                       child: Text(
                         'Ajouter l\'employé',
                         style: TextStyle(
-                          color: Colors.black,
+                          color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
@@ -1675,7 +1682,7 @@ class _EmployeesPageState extends State<EmployeesPage> with TickerProviderStateM
                       child: Text(
                         'Appliquer les filtres',
                         style: TextStyle(
-                          color: Colors.black,
+                          color: Colors.white,
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),

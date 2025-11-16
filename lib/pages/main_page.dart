@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
 import '../theme/theme_provider.dart';
+import '../components/notification_badge.dart';
 import 'home_page.dart';
 import 'social_page.dart';
 import 'employees_page.dart';
@@ -117,38 +118,46 @@ class MainPage extends StatelessWidget {
           unselectedFontSize: 12,
           iconSize: 28,
           items: isAdmin 
-            ? const [
-                BottomNavigationBarItem(
+            ? [
+                const BottomNavigationBarItem(
                   icon: Icon(Icons.home_rounded),
                   label: 'Accueil',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.groups_rounded),
+                  icon: NotificationBadge(
+                    count: appProvider.unreadMessagesCount,
+                    showBadge: appProvider.hasUnreadNotifications,
+                    child: const Icon(Icons.groups_rounded),
+                  ),
                   label: 'Social',
                 ),
-                BottomNavigationBarItem(
+                const BottomNavigationBarItem(
                   icon: Icon(Icons.business_center_rounded),
                   label: 'Employés',
                 ),
-                BottomNavigationBarItem(
+                const BottomNavigationBarItem(
                   icon: Icon(Icons.person_rounded),
                   label: 'Profil',
                 ),
-                BottomNavigationBarItem(
+                const BottomNavigationBarItem(
                   icon: Icon(Icons.admin_panel_settings_rounded),
                   label: 'Admin',
                 ),
               ]
-            : const [
-                BottomNavigationBarItem(
+            : [
+                const BottomNavigationBarItem(
                   icon: Icon(Icons.home_rounded),
                   label: 'Accueil',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.groups_rounded),
+                  icon: NotificationBadge(
+                    count: appProvider.unreadMessagesCount,
+                    showBadge: appProvider.hasUnreadNotifications,
+                    child: const Icon(Icons.groups_rounded),
+                  ),
                   label: 'Social',
                 ),
-                BottomNavigationBarItem(
+                const BottomNavigationBarItem(
                   icon: Icon(Icons.person_rounded),
                   label: 'Profil',
                 ),

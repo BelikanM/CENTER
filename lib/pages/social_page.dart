@@ -7,6 +7,7 @@ import '../components/story_circle.dart';
 import '../components/image_background.dart';
 import '../utils/background_image_manager.dart';
 import '../utils/share_helper.dart';
+import '../services/notification_service.dart';
 import 'create_publication_page.dart';
 import 'map_view_page.dart';
 import 'comments_page.dart';
@@ -90,6 +91,11 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
     _loadStories();
     _loadSavedPublications();
     _listenToWebSocket();
+    
+    // Marquer les notifications comme lues à l'entrée de la page
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _markNotificationsAsRead();
+    });
   }
 
   @override
@@ -99,6 +105,20 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
     if (state == AppLifecycleState.resumed) {
       _loadPublications();
       _loadStories();
+      // Marquer les notifications comme lues
+      _markNotificationsAsRead();
+    }
+  }
+
+  void _markNotificationsAsRead() {
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final notificationService = NotificationService();
+    
+    if (appProvider.hasUnreadNotifications) {
+      appProvider.clearUnreadMessages();
+      // Effacer le badge sur l'icône de l'app
+      notificationService.clearAppBadge();
+      debugPrint('✅ Notifications marquées comme lues et badge effacé');
     }
   }
 
@@ -890,7 +910,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
                       heroTag: 'create',
                       onPressed: _navigateToCreatePublication,
                       backgroundColor: const Color(0xFF00D4FF),
-                      foregroundColor: Colors.black,
+                      foregroundColor: Colors.white,
                       icon: const Icon(Icons.edit_rounded),
                       label: const Text(
                         'Publier',
@@ -954,7 +974,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
                     ),
                     child: const Icon(
                       Icons.groups_rounded,
-                      color: Colors.black,
+                      color: Colors.white,
                       size: 22,
                     ),
                   ),
@@ -1226,7 +1246,7 @@ class _SocialPageState extends State<SocialPage> with TickerProviderStateMixin, 
                 onPressed: _loadPublications,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF00D4FF),
-                  foregroundColor: Colors.black,
+                  foregroundColor: Colors.white,
                 ),
                 child: const Text('Réessayer'),
               ),

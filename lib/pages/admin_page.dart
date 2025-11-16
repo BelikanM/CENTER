@@ -268,7 +268,7 @@ class _AdminPageState extends State<AdminPage> {
               Text(
                 'Statistiques Globales',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.black87,
+                  color: Colors.white,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -400,7 +400,7 @@ class _AdminPageState extends State<AdminPage> {
               Text(
                 'Gestion des Utilisateurs',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.black87,
+                  color: Colors.white,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -411,7 +411,7 @@ class _AdminPageState extends State<AdminPage> {
             const Center(
               child: Text(
                 'Aucun utilisateur',
-                style: TextStyle(color: Colors.black54),
+                style: TextStyle(color: Colors.white70),
               ),
             )
           else
@@ -437,10 +437,10 @@ class _AdminPageState extends State<AdminPage> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F5F5),
+        color: const Color(0xFF1E1E1E),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.grey.withValues(alpha: 0.2),
+          color: const Color(0xFF00D4FF).withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -482,7 +482,7 @@ class _AdminPageState extends State<AdminPage> {
                 Text(
                   name,
                   style: const TextStyle(
-                    color: Colors.black87,
+                    color: Colors.white,
                     fontWeight: FontWeight.w600,
                     fontSize: 16,
                   ),
@@ -490,7 +490,7 @@ class _AdminPageState extends State<AdminPage> {
                 Text(
                   email,
                   style: TextStyle(
-                    color: Colors.black54,
+                    color: Colors.white70,
                     fontSize: 14,
                   ),
                 ),
@@ -562,7 +562,7 @@ class _AdminPageState extends State<AdminPage> {
               Text(
                 'Gestion des Employés',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.black87,
+                  color: Colors.white,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -573,7 +573,7 @@ class _AdminPageState extends State<AdminPage> {
             const Center(
               child: Text(
                 'Aucun employé',
-                style: TextStyle(color: Colors.black54),
+                style: TextStyle(color: Colors.white70),
               ),
             )
           else
@@ -601,10 +601,10 @@ class _AdminPageState extends State<AdminPage> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F5F5),
+        color: const Color(0xFF1E1E1E),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.grey.withValues(alpha: 0.2),
+          color: const Color(0xFF00D4FF).withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -646,7 +646,7 @@ class _AdminPageState extends State<AdminPage> {
                 Text(
                   name,
                   style: const TextStyle(
-                    color: Colors.black87,
+                    color: Colors.white,
                     fontWeight: FontWeight.w600,
                     fontSize: 16,
                   ),
@@ -655,7 +655,7 @@ class _AdminPageState extends State<AdminPage> {
                   Text(
                     email,
                     style: const TextStyle(
-                      color: Colors.black54,
+                      color: Colors.white70,
                       fontSize: 14,
                     ),
                   ),
@@ -731,7 +731,7 @@ class _AdminPageState extends State<AdminPage> {
               Text(
                 'Contrôles Système',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: Colors.black87,
+                  color: Colors.white,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -747,7 +747,7 @@ class _AdminPageState extends State<AdminPage> {
                   child: const Text(
                     'Sauvegarder Données',
                     style: TextStyle(
-                      color: Colors.black,
+                      color: Colors.white,
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
                     ),
@@ -762,7 +762,7 @@ class _AdminPageState extends State<AdminPage> {
                   child: const Text(
                     'Exporter Rapports',
                     style: TextStyle(
-                      color: Colors.black,
+                      color: Colors.white,
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
                     ),
@@ -778,7 +778,7 @@ class _AdminPageState extends State<AdminPage> {
             child: const Text(
               'Maintenance Système',
               style: TextStyle(
-                color: Colors.black,
+                color: Colors.white,
                 fontWeight: FontWeight.w600,
                 fontSize: 16,
               ),
@@ -899,18 +899,18 @@ class _AdminPageState extends State<AdminPage> {
         backgroundColor: Colors.white,
         title: const Text(
           'Maintenance Système',
-          style: TextStyle(color: Colors.black87),
+          style: TextStyle(color: Colors.white),
         ),
         content: const Text(
           'Cette action effectuera une maintenance complète du système. Continuer?',
-          style: TextStyle(color: Colors.black54),
+          style: TextStyle(color: Colors.white70),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
               'Annuler',
-              style: TextStyle(color: Colors.black54),
+              style: TextStyle(color: Colors.white70),
             ),
           ),
           GradientButton(

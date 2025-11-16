@@ -192,18 +192,18 @@ class _CreatePublicationPageState extends State<CreatePublicationPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFF0A0E21),
       appBar: AppBar(
         backgroundColor: const Color(0xFF00D4FF),
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.black),
+          icon: const Icon(Icons.close, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           'Créer une publication',
           style: TextStyle(
-            color: Colors.black,
+            color: Colors.white,
             fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
@@ -215,7 +215,7 @@ class _CreatePublicationPageState extends State<CreatePublicationPage> {
               child: const Text(
                 'Publier',
                 style: TextStyle(
-                  color: Colors.black,
+                  color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -230,7 +230,10 @@ class _CreatePublicationPageState extends State<CreatePublicationPage> {
                 children: [
                   CircularProgressIndicator(color: Color(0xFF00D4FF)),
                   SizedBox(height: 16),
-                  Text('Publication en cours...'),
+                  Text(
+                    'Publication en cours...',
+                    style: TextStyle(color: Colors.white),
+                  ),
                 ],
               ),
             )
@@ -240,15 +243,27 @@ class _CreatePublicationPageState extends State<CreatePublicationPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Champ de texte
-                  TextField(
-                    controller: _contentController,
-                    maxLines: 6,
-                    decoration: const InputDecoration(
-                      hintText: 'Quoi de neuf ?',
-                      hintStyle: TextStyle(color: Colors.grey),
-                      border: InputBorder.none,
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0A0E21),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.1),
+                      ),
                     ),
-                    style: const TextStyle(fontSize: 16),
+                    child: TextField(
+                      controller: _contentController,
+                      maxLines: 6,
+                      decoration: const InputDecoration(
+                        hintText: 'Quoi de neuf ?',
+                        hintStyle: TextStyle(color: Colors.white54),
+                        border: InputBorder.none,
+                        filled: true,
+                        fillColor: Colors.transparent,
+                      ),
+                      style: const TextStyle(fontSize: 16, color: Colors.white),
+                    ),
                   ),
 
                   const SizedBox(height: 16),
@@ -257,8 +272,11 @@ class _CreatePublicationPageState extends State<CreatePublicationPage> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
+                      color: Colors.white.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFF00FF88).withValues(alpha: 0.3),
+                      ),
                     ),
                     child: Row(
                       children: [
@@ -267,7 +285,7 @@ class _CreatePublicationPageState extends State<CreatePublicationPage> {
                               ? Icons.location_on
                               : Icons.location_off,
                           color: _currentPosition != null
-                              ? Colors.green
+                              ? const Color(0xFF00FF88)
                               : Colors.grey,
                         ),
                         const SizedBox(width: 12),
@@ -276,11 +294,11 @@ class _CreatePublicationPageState extends State<CreatePublicationPage> {
                             _isLoadingLocation
                                 ? 'Chargement de la position...'
                                 : _locationText,
-                            style: const TextStyle(fontSize: 14),
+                            style: const TextStyle(fontSize: 14, color: Colors.white),
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.refresh),
+                          icon: const Icon(Icons.refresh, color: Colors.white70),
                           onPressed: _isLoadingLocation ? null : _getCurrentLocation,
                         ),
                       ],

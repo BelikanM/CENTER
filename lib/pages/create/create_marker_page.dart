@@ -273,7 +273,7 @@ class _CreateMarkerPageState extends State<CreateMarkerPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: const Color(0xFF0A0E21),
       appBar: AppBar(
         elevation: 0,
         backgroundColor: const Color(0xFF25D366),
@@ -330,8 +330,8 @@ class _CreateMarkerPageState extends State<CreateMarkerPage> {
                     ),
                     children: [
                       TileLayer(
-                        urlTemplate: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', // ✅ CHANGÉ - Carto au lieu de OpenStreetMap
-                        subdomains: const ['a', 'b', 'c'],
+                        urlTemplate: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                        maxZoom: 22,
                         userAgentPackageName: 'com.example.app',
                       ),
                       if (_selectedPosition != null) // ✅ Vérification null
@@ -522,29 +522,26 @@ class _CreateMarkerPageState extends State<CreateMarkerPage> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFF1A1A1A),
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.1),
+        ),
       ),
       child: TextFormField(
         controller: controller,
         maxLines: maxLines,
+        style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: TextStyle(color: Colors.grey[400]),
+          hintStyle: const TextStyle(color: Colors.white54),
           prefixIcon: Icon(icon, color: const Color(0xFF25D366)),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none,
           ),
           filled: true,
-          fillColor: Colors.white,
+          fillColor: Colors.transparent,
         ),
         validator: validator,
       ),
@@ -555,15 +552,11 @@ class _CreateMarkerPageState extends State<CreateMarkerPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFF1A1A1A),
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.1),
+        ),
       ),
       child: Wrap(
         spacing: 12,
@@ -579,7 +572,7 @@ class _CreateMarkerPageState extends State<CreateMarkerPage> {
                 color: color,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isSelected ? Colors.black : Colors.transparent,
+                  color: isSelected ? const Color(0xFF00FF88) : Colors.transparent,
                   width: 3,
                 ),
                 boxShadow: [

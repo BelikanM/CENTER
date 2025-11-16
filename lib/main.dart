@@ -8,6 +8,7 @@ import 'pages/main_page.dart';
 import 'api_service.dart';
 import 'websocket_service.dart';
 import 'theme/theme_provider.dart';
+import 'components/notification_wrapper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -77,7 +78,9 @@ class CenterApp extends StatelessWidget {
             title: 'Center - Personnel & Social',
             debugShowCheckedModeBanner: false,
             theme: _buildTheme(themeProvider),
-            home: const MainPage(),
+            home: const NotificationWrapper(
+              child: MainPage(),
+            ),
           );
         },
       ),
@@ -171,8 +174,8 @@ class CenterApp extends StatelessWidget {
           ),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        labelStyle: const TextStyle(color: Colors.black87),
-        hintStyle: const TextStyle(color: Colors.black54),
+        labelStyle: const TextStyle(color: Colors.white),
+        hintStyle: const TextStyle(color: Colors.white70),
       ),
       dividerTheme: const DividerThemeData(
         color: Color(0xFF00FF88),
@@ -196,6 +199,8 @@ class AppProvider extends ChangeNotifier {
   Map<String, dynamic>? _currentUser;
   bool _isInitialized = false;
   final WebSocketService _wsService = WebSocketService();
+  int _unreadMessagesCount = 0;
+  bool _hasUnreadNotifications = false;
 
   int get currentIndex => _currentIndex;
   bool get isAuthenticated => _isAuthenticated;
@@ -203,6 +208,8 @@ class AppProvider extends ChangeNotifier {
   Map<String, dynamic>? get currentUser => _currentUser;
   bool get isInitialized => _isInitialized;
   Stream<Map<String, dynamic>> get webSocketStream => _wsService.stream;
+  int get unreadMessagesCount => _unreadMessagesCount;
+  bool get hasUnreadNotifications => _hasUnreadNotifications;
 
   // Clés pour SharedPreferences
   static const String _keyIsAuthenticated = 'is_authenticated';
@@ -302,6 +309,27 @@ class AppProvider extends ChangeNotifier {
       debugPrint('❌ Erreur suppression données: $e');
     }
     
+    notifyListeners();
+  }
+
+  // Mettre à jour le compteur de messages non lus
+  void setUnreadMessagesCount(int count) {
+    _unreadMessagesCount = count;
+    _hasUnreadNotifications = count > 0;
+    notifyListeners();
+  }
+
+  // Incrémenter le compteur
+  void incrementUnreadMessages() {
+    _unreadMessagesCount++;
+    _hasUnreadNotifications = true;
+    notifyListeners();
+  }
+
+  // Réinitialiser le compteur
+  void clearUnreadMessages() {
+    _unreadMessagesCount = 0;
+    _hasUnreadNotifications = false;
     notifyListeners();
   }
 }

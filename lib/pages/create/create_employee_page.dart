@@ -125,7 +125,7 @@ class _CreateEmployeePageState extends State<CreateEmployeePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: const Color(0xFF0A0E21),
       appBar: AppBar(
         elevation: 0,
         backgroundColor: const Color(0xFF25D366),
@@ -309,29 +309,26 @@ class _CreateEmployeePageState extends State<CreateEmployeePage> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFF1A1A1A),
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.1),
+        ),
       ),
       child: TextFormField(
         controller: controller,
         keyboardType: keyboardType,
+        style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: TextStyle(color: Colors.grey[400]),
+          hintStyle: const TextStyle(color: Colors.white54),
           prefixIcon: Icon(icon, color: const Color(0xFF25D366)),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none,
           ),
           filled: true,
-          fillColor: Colors.white,
+          fillColor: Colors.transparent,
         ),
         validator: validator,
       ),
@@ -341,18 +338,16 @@ class _CreateEmployeePageState extends State<CreateEmployeePage> {
   Widget _buildDepartmentDropdown() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFF1A1A1A),
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.1),
+        ),
       ),
       child: DropdownButtonFormField<String>(
         initialValue: _selectedDepartment,
+        dropdownColor: const Color(0xFF1A1A1A),
+        style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
           prefixIcon: const Icon(Icons.business, color: Color(0xFF25D366)),
           border: OutlineInputBorder(
@@ -360,12 +355,12 @@ class _CreateEmployeePageState extends State<CreateEmployeePage> {
             borderSide: BorderSide.none,
           ),
           filled: true,
-          fillColor: Colors.white,
+          fillColor: Colors.transparent,
         ),
         items: _departments.map((dept) {
           return DropdownMenuItem(
             value: dept,
-            child: Text(dept),
+            child: Text(dept, style: const TextStyle(color: Colors.white)),
           );
         }).toList(),
         onChanged: (value) {

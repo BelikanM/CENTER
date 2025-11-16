@@ -192,7 +192,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                 Text(
                   widget.userName,
                   style: const TextStyle(
-                    color: Colors.black,
+                    color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -200,7 +200,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                 Text(
                   '${widget.userRole} • ${widget.timeAgo}',
                   style: const TextStyle(
-                    color: Colors.black54,
+                    color: Colors.white70,
                     fontSize: 12,
                   ),
                 ),
@@ -211,7 +211,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
             onPressed: () => _showPostOptions(),
             icon: const Icon(
               Icons.more_vert_rounded,
-              color: Colors.black54,
+              color: Colors.white70,
             ),
           ),
         ],
@@ -225,7 +225,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
       child: Text(
         widget.content,
         style: const TextStyle(
-          color: Colors.black,
+          color: Colors.white,
           fontSize: 15,
           height: 1.4,
         ),
@@ -270,7 +270,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                   const Text(
                     'Localisation',
                     style: TextStyle(
-                      color: Colors.black87,
+                      color: Colors.white,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -279,7 +279,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                   Text(
                     '${widget.latitude!.toStringAsFixed(6)}, ${widget.longitude!.toStringAsFixed(6)}',
                     style: const TextStyle(
-                      color: Colors.black54,
+                      color: Colors.white70,
                       fontSize: 11,
                       fontFamily: 'monospace',
                     ),
@@ -514,7 +514,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                     child: _buildActionButton(
                       icon: _isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
                       label: widget.likes.toString(),
-                      color: _isLiked ? Colors.red : Colors.black54,
+                      color: _isLiked ? Colors.red : Colors.white,
                       onTap: _handleLike,
                     ),
                   );
@@ -524,14 +524,14 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
               _buildActionButton(
                 icon: Icons.chat_bubble_outline_rounded,
                 label: widget.comments.toString(),
-                color: Colors.black54,
+                color: Colors.white,
                 onTap: widget.onComment,
               ),
               const SizedBox(width: 24),
               _buildActionButton(
                 icon: Icons.share_rounded,
                 label: widget.shares.toString(),
-                color: Colors.black54,
+                color: Colors.white,
                 onTap: widget.onShare,
               ),
               const Spacer(),
@@ -539,7 +539,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                 onPressed: widget.onSave,
                 icon: Icon(
                   widget.isSaved ? Icons.bookmark : Icons.bookmark_border_rounded,
-                  color: widget.isSaved ? Colors.blue : Colors.black54,
+                  color: widget.isSaved ? const Color(0xFF00D4FF) : Colors.white,
                 ),
               ),
             ],
