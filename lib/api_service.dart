@@ -551,6 +551,31 @@ class ApiService {
     }
   }
 
+  // Récupérer les publications de l'utilisateur connecté uniquement
+  static Future<Map<String, dynamic>> getMyPublications(
+    String token, {
+    int page = 1,
+    int limit = 20,
+  }) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl$apiPrefix/publications/my?page=$page&limit=$limit'),
+        headers: _authHeaders(token),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return data;
+      } else {
+        throw Exception(data['message'] ?? 'Erreur de récupération');
+      }
+    } catch (e) {
+      throw Exception('Erreur de connexion: $e');
+    }
+  }
+
   // Récupérer une publication par son ID (pour partage) - PUBLIQUE
   static Future<Map<String, dynamic>> getPublicationById(String publicationId) async {
     await _ensureInitialized();
@@ -636,6 +661,38 @@ class ApiService {
       }
     } catch (e) {
       debugPrint('❌ Erreur incrementShareCount: $e');
+      return {
+        'success': false,
+        'message': 'Erreur de connexion',
+      };
+    }
+  }
+
+  // Mettre à jour le token FCM de l'utilisateur
+  static Future<Map<String, dynamic>> updateFCMToken(String token, String fcmToken) async {
+    await _ensureInitialized();
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl$apiPrefix/users/fcm-token'),
+        headers: _authHeaders(token),
+        body: json.encode({'fcmToken': fcmToken}),
+      );
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'message': 'Token FCM mis à jour',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Erreur mise à jour token',
+        };
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur updateFCMToken: $e');
       return {
         'success': false,
         'message': 'Erreur de connexion',
@@ -1693,12 +1750,23 @@ class ApiService {
       final data = json.decode(response.body);
 
       if (response.statusCode == 200) {
-        return data;
+        return {
+          'success': true,
+          'notifications': data['notifications'] ?? data,
+          'unreadCount': data['unreadCount'] ?? 0,
+        };
       } else {
-        throw Exception(data['message'] ?? 'Erreur de récupération');
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Erreur de récupération',
+        };
       }
     } catch (e) {
-      throw Exception('Erreur de connexion: $e');
+      debugPrint('❌ Erreur getNotifications: $e');
+      return {
+        'success': false,
+        'message': 'Erreur de connexion: $e',
+      };
     }
   }
 
@@ -1714,12 +1782,22 @@ class ApiService {
       final data = json.decode(response.body);
 
       if (response.statusCode == 200) {
-        return data;
+        return {
+          'success': true,
+          'message': 'Notification marquée comme lue',
+        };
       } else {
-        throw Exception(data['message'] ?? 'Erreur');
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Erreur',
+        };
       }
     } catch (e) {
-      throw Exception('Erreur de connexion: $e');
+      debugPrint('❌ Erreur markNotificationAsRead: $e');
+      return {
+        'success': false,
+        'message': 'Erreur de connexion: $e',
+      };
     }
   }
 

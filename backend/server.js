@@ -872,6 +872,30 @@ async function sendPushNotification(userId, notification) {
   }
 }
 
+// Envoyer un email de notification
+async function sendEmailNotification(userEmail, subject, htmlContent) {
+  try {
+    if (!userEmail) {
+      console.log('⚠️ Pas d\'email fourni');
+      return { success: false };
+    }
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER || 'noreply@center.app',
+      to: userEmail,
+      subject: subject,
+      html: htmlContent
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`📧 Email envoyé à ${userEmail}`);
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Erreur envoi email:', error);
+    return { success: false, error };
+  }
+}
+
 // Envoyer une notification à un utilisateur
 app.post('/api/notifications/send', verifyToken, async (req, res) => {
   try {
@@ -1190,6 +1214,44 @@ app.post('/api/publications', verifyToken, publicationUpload.array('media', 10),
   });
   
   res.status(201).json({ message: 'Publication créée', publication: pubObj });
+});
+
+// ✅ ROUTE - Récupérer MES publications uniquement
+app.get('/api/publications/my', verifyToken, async (req, res) => {
+  try {
+    console.log('\n=== RÉCUPÉRATION MES PUBLICATIONS ===');
+    console.log('User ID:', req.user.userId);
+    const page = +req.query.page || 1;
+    const limit = +req.query.limit || 20;
+    const skip = (page - 1) * limit;
+    console.log('Page:', page, 'Limit:', limit);
+
+    const publications = await Publication.find({ 
+      isActive: true,
+      userId: req.user.userId  // UNIQUEMENT mes publications
+    })
+      .populate('userId', 'name email profileImage')
+      .populate('comments.userId', 'name email profileImage')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const publicationsData = publications.map(pub => pub.toObject());
+
+    const total = await Publication.countDocuments({ 
+      isActive: true,
+      userId: req.user.userId 
+    });
+
+    console.log('✅ Mes publications trouvées:', publications.length, '/', total);
+    res.json({
+      publications: publicationsData,
+      pagination: { currentPage: page, totalPages: Math.ceil(total / limit), total }
+    });
+  } catch (err) {
+    console.error('❌ Erreur récupération mes publications:', err);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
 });
 
 app.get('/api/publications', verifyToken, async (req, res) => {
@@ -1661,10 +1723,12 @@ app.post('/api/publications/:id/comments', verifyToken, commentUpload.array('med
     }
 
     // Envoyer une notification au propriétaire de la publication
-    await pub.populate('userId', 'name fcmToken notificationSettings');
+    await pub.populate('userId', 'name email fcmToken notificationSettings');
     if (pub.userId._id.toString() !== req.user.userId && pub.userId.notificationSettings?.comments !== false) {
       const commenter = await User.findById(req.user.userId).select('name');
       const commentText = content?.trim() || '[média]';
+      
+      // Notification push
       await sendPushNotification(pub.userId._id, {
         title: '💬 Nouveau commentaire',
         body: `${commenter.name}: ${commentText.substring(0, 100)}`,
@@ -1675,6 +1739,40 @@ app.post('/api/publications/:id/comments', verifyToken, commentUpload.array('med
           userId: req.user.userId
         }
       });
+
+      // Email notification
+      if (pub.userId.email) {
+        const emailHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #00FF88, #00CC66); padding: 20px; text-align: center;">
+              <h1 style="color: white; margin: 0;">💬 Nouveau commentaire</h1>
+            </div>
+            <div style="padding: 30px; background: #f5f5f5;">
+              <p style="font-size: 16px; color: #333;">Bonjour <strong>${pub.userId.name}</strong>,</p>
+              <p style="font-size: 16px; color: #333;">
+                <strong>${commenter.name}</strong> a commenté votre publication :
+              </p>
+              <div style="background: white; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #00FF88;">
+                <p style="font-size: 14px; color: #555; margin: 0;">${commentText}</p>
+              </div>
+              <p style="text-align: center;">
+                <a href="${BASE_URL}" style="display: inline-block; padding: 12px 30px; background: #00FF88; color: black; text-decoration: none; border-radius: 25px; font-weight: bold;">
+                  Voir le commentaire
+                </a>
+              </p>
+            </div>
+            <div style="background: #333; color: #999; text-align: center; padding: 15px; font-size: 12px;">
+              <p>© 2025 CENTER - Application de gestion collaborative</p>
+            </div>
+          </div>
+        `;
+        
+        await sendEmailNotification(
+          pub.userId.email,
+          '💬 Nouveau commentaire sur votre publication',
+          emailHtml
+        );
+      }
     }
 
     res.status(201).json({ 
@@ -2579,11 +2677,15 @@ app.get('/api/stats', verifyToken, async (req, res) => {
     const isAdmin = user.status === 'admin' || 
                     ['nyundumathryme@gmail', 'nyundumathryme@gmail.com'].includes(user.email.toLowerCase());
 
-    // Statistiques de publications (accessibles à tous)
-    const totalPublications = await Publication.countDocuments({ isActive: true });
+    // Statistiques de publications PERSONNELLES (pour chaque utilisateur)
+    const totalPublications = await Publication.countDocuments({ 
+      userId: req.user.userId,  // UNIQUEMENT les publications de l'utilisateur
+      isActive: true 
+    });
     
-    // Compter les publications avec géolocalisation
+    // Compter les publications personnelles avec géolocalisation
     const publicationsWithLocation = await Publication.countDocuments({
+      userId: req.user.userId,  // UNIQUEMENT les publications de l'utilisateur
       isActive: true,
       'location.latitude': { $exists: true, $ne: null },
       'location.longitude': { $exists: true, $ne: null }

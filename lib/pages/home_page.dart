@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
+import '../api_service.dart';
 import '../components/futuristic_card.dart';
 import '../components/stats_card.dart';
 import '../components/quick_action_card.dart';
 import '../components/image_background.dart';
 import '../utils/background_image_manager.dart';
+import 'social_page.dart';
+import 'map_view_page.dart';
+import 'admin_page.dart';
+import 'notifications_list_page.dart';
+import 'create/create_employee_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -15,35 +21,84 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
   late String _selectedImage;
   final BackgroundImageManager _imageManager = BackgroundImageManager();
+
+  // Statistiques dynamiques
+  bool _isLoadingStats = false;
+  int _employeesCount = 0;
+  int _publicationsCount = 0;
+  int _markersCount = 0;
+  int _notificationsCount = 0;
+  List<Map<String, dynamic>> _recentPublications = [];
 
   @override
   void initState() {
     super.initState();
     // Sélectionner une image aléatoire au démarrage
     _selectedImage = _imageManager.getImageForPage('home');
-    
-    _pulseController = AnimationController(
-      duration: const Duration(seconds: 3),
-      vsync: this,
-    )..repeat(reverse: true);
-    
-    _pulseAnimation = Tween<double>(
-      begin: 0.3,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _pulseController,
-      curve: Curves.easeInOut,
-    ));
+
+    // Charger les statistiques
+    _loadStats();
   }
 
-  @override
-  void dispose() {
-    _pulseController.dispose();
-    super.dispose();
+  /// Charger toutes les statistiques depuis l'API
+  Future<void> _loadStats() async {
+    if (!mounted) return;
+    
+    setState(() => _isLoadingStats = true);
+    
+    try {
+      final appProvider = Provider.of<AppProvider>(context, listen: false);
+      final token = appProvider.accessToken;
+      
+      if (token == null) return;
+
+      // Charger les statistiques globales
+      try {
+        final statsResult = await ApiService.getStats(token);
+        if (mounted) {
+          setState(() {
+            // L'API retourne stats.employees.total, stats.publications.total, etc.
+            _employeesCount = statsResult['employees']?['total'] ?? 0;
+            _publicationsCount = statsResult['publications']?['total'] ?? 0;
+            _markersCount = statsResult['markers']?['total'] ?? 0;
+          });
+        }
+      } catch (e) {
+        debugPrint('❌ Erreur chargement stats: $e');
+      }
+
+      // Charger les notifications
+      try {
+        final notifsResult = await ApiService.getNotifications(token);
+        if (notifsResult['success'] == true && mounted) {
+          setState(() {
+            _notificationsCount = notifsResult['unreadCount'] ?? 0;
+          });
+        }
+      } catch (e) {
+        debugPrint('❌ Erreur chargement notifications: $e');
+      }
+
+      // Charger les publications récentes PERSONNELLES
+      try {
+        final pubsResult = await ApiService.getMyPublications(token, page: 1, limit: 5);
+        if (pubsResult['success'] == true && mounted) {
+          final pubs = pubsResult['publications'] as List? ?? [];
+          setState(() {
+            _recentPublications = pubs.take(5).map((p) => p as Map<String, dynamic>).toList();
+          });
+        }
+      } catch (e) {
+        debugPrint('❌ Erreur chargement publications récentes: $e');
+      }
+
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingStats = false);
+      }
+    }
   }
 
   @override
@@ -53,27 +108,31 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         imagePath: _selectedImage,
         opacity: 0.30, // Réduit pour éviter le voile blanc
         withGradient: false, // Désactivé pour clarté maximale
-        child: SafeArea(
-          bottom: false, // Ne pas appliquer SafeArea en bas, on le gère manuellement
-          child: CustomScrollView(
-            slivers: [
-              _buildAppBar(),
-              SliverPadding(
-                padding: const EdgeInsets.all(24),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    _buildWelcomeSection(),
-                    const SizedBox(height: 32),
-                    _buildStatsSection(),
-                    const SizedBox(height: 32),
-                    _buildQuickActions(),
-                    const SizedBox(height: 32),
-                    _buildRecentActivity(),
-                    SizedBox(height: 100 + MediaQuery.of(context).padding.bottom), // Padding bottom système
-                  ]),
+        child: RefreshIndicator(
+          onRefresh: _loadStats,
+          color: const Color(0xFF00FF88),
+          child: SafeArea(
+            bottom: false, // Ne pas appliquer SafeArea en bas, on le gère manuellement
+            child: CustomScrollView(
+              slivers: [
+                _buildAppBar(),
+                SliverPadding(
+                  padding: const EdgeInsets.all(24),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      _buildWelcomeSection(),
+                      const SizedBox(height: 32),
+                      _buildStatsSection(),
+                      const SizedBox(height: 32),
+                      _buildQuickActions(),
+                      const SizedBox(height: 32),
+                      _buildRecentActivity(),
+                      SizedBox(height: 100 + MediaQuery.of(context).padding.bottom), // Padding bottom système
+                    ]),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -104,32 +163,30 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             children: [
               Row(
                 children: [
-                  AnimatedBuilder(
-                    animation: _pulseAnimation,
-                    builder: (context, child) {
-                      return Container(
-                        width: 50,
-                        height: 50,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF00FF88), Color(0xFF00CC66)],
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF00FF88).withValues(alpha: _pulseAnimation.value),
-                              blurRadius: 20,
-                              spreadRadius: 2,
-                            ),
-                          ],
+                  // Logo SETRAF dans un cercle
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF00FF88), Color(0xFF00CC66)],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF00FF88).withValues(alpha: 0.3),
+                          blurRadius: 20,
+                          spreadRadius: 2,
                         ),
-                        child: const Icon(
-                          Icons.dashboard_rounded,
-                          color: Colors.black,
-                          size: 24,
-                        ),
-                      );
-                    },
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(8),
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/images/app_logo.png',
+                        fit: BoxFit.contain,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -154,24 +211,73 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       ],
                     ),
                   ),
-                  IconButton(
-                    onPressed: () {},
-                    icon: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF00FF88).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: const Color(0xFF00FF88),
-                          width: 1,
+                  // Bouton notifications avec badge
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      IconButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const NotificationsListPage(),
+                            ),
+                          ).then((_) {
+                            // Recharger les stats après retour de la page notifications
+                            _loadStats();
+                          });
+                        },
+                        icon: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00FF88).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: const Color(0xFF00FF88),
+                              width: 1,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.notifications_rounded,
+                            color: Color(0xFF00FF88),
+                            size: 20,
+                          ),
                         ),
                       ),
-                      child: const Icon(
-                        Icons.notifications_rounded,
-                        color: Color(0xFF00FF88),
-                        size: 20,
-                      ),
-                    ),
+                      // Badge avec le nombre de notifications
+                      if (_notificationsCount > 0)
+                        Positioned(
+                          right: 8,
+                          top: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 2,
+                              ),
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 18,
+                              minHeight: 18,
+                            ),
+                            child: Text(
+                              _notificationsCount > 99 ? '99+' : _notificationsCount.toString(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),
@@ -187,6 +293,17 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       builder: (context, appProvider, child) {
         final user = appProvider.currentUser;
         final userName = user?['name'] ?? 'Utilisateur';
+        final userAvatar = user?['profileImage'];
+        
+        // Vérifier si l'avatar contient déjà l'URL complète ou juste le chemin
+        final avatarUrl = userAvatar != null && userAvatar.isNotEmpty
+            ? (userAvatar.startsWith('http') 
+                ? userAvatar // URL complète déjà présente
+                : '${ApiService.baseUrl}$userAvatar') // Ajouter baseUrl si nécessaire
+            : null;
+        
+        // Debug: afficher les infos utilisateur
+        debugPrint('👤 User info: name=$userName, avatar=$avatarUrl');
         
         return FuturisticCard(
           child: Container(
@@ -234,9 +351,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   height: 80,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF00FF88), Color(0xFF00CC66)],
-                    ),
+                    gradient: avatarUrl == null
+                        ? const LinearGradient(
+                            colors: [Color(0xFF00FF88), Color(0xFF00CC66)],
+                          )
+                        : null,
                     boxShadow: [
                       BoxShadow(
                         color: const Color(0xFF00FF88).withValues(alpha: 0.3),
@@ -244,12 +363,23 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                         offset: const Offset(0, 8),
                       ),
                     ],
+                    image: avatarUrl != null
+                        ? DecorationImage(
+                            image: NetworkImage(avatarUrl),
+                            fit: BoxFit.cover,
+                            onError: (exception, stackTrace) {
+                              debugPrint('❌ Erreur chargement avatar: $exception');
+                            },
+                          )
+                        : null,
                   ),
-                  child: const Icon(
-                    Icons.person_rounded,
-                    color: Colors.black,
-                    size: 40,
-                  ),
+                  child: avatarUrl == null
+                      ? Icon(
+                          Icons.person_rounded,
+                          size: 40,
+                          color: Colors.white,
+                        )
+                      : null,
                 ),
               ],
             ),
@@ -263,13 +393,27 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Statistiques en temps réel',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Statistiques en temps réel',
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            if (_isLoadingStats)
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00FF88)),
+                ),
+              ),
+          ],
         ),
         const SizedBox(height: 16),
         Row(
@@ -277,7 +421,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             Expanded(
               child: StatsCard(
                 title: 'Employés',
-                value: '142',
+                value: _employeesCount.toString(),
                 icon: Icons.groups_rounded,
                 color: const Color(0xFF00FF88),
                 trend: '+12%',
@@ -287,7 +431,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             Expanded(
               child: StatsCard(
                 title: 'Publications',
-                value: '89',
+                value: _publicationsCount.toString(),
                 icon: Icons.article_rounded,
                 color: const Color(0xFF00CC66),
                 trend: '+8%',
@@ -301,7 +445,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             Expanded(
               child: StatsCard(
                 title: 'Marqueurs',
-                value: '24',
+                value: _markersCount.toString(),
                 icon: Icons.location_on_rounded,
                 color: const Color(0xFF009944),
                 trend: '+3%',
@@ -310,11 +454,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             const SizedBox(width: 16),
             Expanded(
               child: StatsCard(
-                title: 'Messages',
-                value: '356',
-                icon: Icons.chat_rounded,
+                title: 'Notifications',
+                value: _notificationsCount.toString(),
+                icon: Icons.notifications_rounded,
                 color: const Color(0xFF00FF88),
-                trend: '+24%',
+                trend: _notificationsCount > 0 ? 'Nouvelles!' : '',
               ),
             ),
           ],
@@ -324,53 +468,97 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 
   Widget _buildQuickActions() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Actions rapides',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
+    return Consumer<AppProvider>(
+      builder: (context, appProvider, child) {
+        final user = appProvider.currentUser;
+        final isAdmin = user?['role'] == 'admin' || user?['isAdmin'] == true;
+        
+        // Liste de toutes les actions
+        final List<Widget> actions = [
+          // Action pour tout le monde: Publier Contenu
+          QuickActionCard(
+            title: 'Publier\nContenu',
+            icon: Icons.edit_rounded,
+            color: const Color(0xFF00CC66),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SocialPage()),
+              );
+            },
           ),
-        ),
-        const SizedBox(height: 16),
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: 1.5,
-          children: [
+          // Action pour tout le monde: Ajouter Marqueur
+          QuickActionCard(
+            title: 'Ajouter\nMarqueur',
+            icon: Icons.add_location_rounded,
+            color: const Color(0xFF009944),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const MapViewPage()),
+              );
+            },
+          ),
+        ];
+
+        // Ajouter les actions admin seulement si l'utilisateur est admin
+        if (isAdmin) {
+          actions.insertAll(0, [
             QuickActionCard(
               title: 'Nouveau\nEmployé',
               icon: Icons.person_add_rounded,
               color: const Color(0xFF00FF88),
-              onTap: () {},
+              onTap: () {
+                final token = appProvider.accessToken;
+                if (token != null) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const CreateEmployeePage()),
+                  ).then((_) => _loadStats());
+                }
+              },
             ),
-            QuickActionCard(
-              title: 'Publier\nContenu',
-              icon: Icons.edit_rounded,
-              color: const Color(0xFF00CC66),
-              onTap: () {},
-            ),
-            QuickActionCard(
-              title: 'Ajouter\nMarqueur',
-              icon: Icons.add_location_rounded,
-              color: const Color(0xFF009944),
-              onTap: () {},
-            ),
+          ]);
+          
+          actions.add(
             QuickActionCard(
               title: 'Rapport\nAnalyse',
               icon: Icons.analytics_rounded,
               color: const Color(0xFF00FF88),
-              onTap: () {},
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AdminPage()),
+                );
+              },
+            ),
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Actions rapides',
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 16),
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              childAspectRatio: 1.4,
+              children: actions,
             ),
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -388,36 +576,102 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         ),
         const SizedBox(height: 16),
         FuturisticCard(
-          child: Column(
-            children: [
-              _buildActivityItem(
-                icon: Icons.person_add_rounded,
-                title: 'Nouvel employé ajouté',
-                subtitle: 'Marie Dubois - Développeuse',
-                time: 'Il y a 2h',
-                color: const Color(0xFF00FF88),
-              ),
-              Divider(color: Colors.black.withValues(alpha: 0.1)),
-              _buildActivityItem(
-                icon: Icons.article_rounded,
-                title: 'Publication mise à jour',
-                subtitle: 'Réunion équipe du lundi',
-                time: 'Il y a 4h',
-                color: const Color(0xFF00CC66),
-              ),
-              Divider(color: Colors.black.withValues(alpha: 0.1)),
-              _buildActivityItem(
-                icon: Icons.location_on_rounded,
-                title: 'Nouveau marqueur créé',
-                subtitle: 'Salle de conférence B',
-                time: 'Il y a 6h',
-                color: const Color(0xFF009944),
-              ),
-            ],
-          ),
+          child: _recentPublications.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.article_outlined,
+                          size: 48,
+                          color: Colors.black26,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Aucune activité récente',
+                          style: TextStyle(
+                            color: Colors.black54,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : Column(
+                  children: _recentPublications.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final pub = entry.value;
+                    
+                    final userId = pub['userId'];
+                    final userName = userId is Map ? userId['name'] ?? 'Utilisateur' : 'Utilisateur';
+                    final text = pub['text'] ?? '';
+                    final createdAt = pub['createdAt'] != null
+                        ? DateTime.parse(pub['createdAt'])
+                        : DateTime.now();
+                    final timeAgo = _formatTimeAgo(createdAt);
+                    final hasLocation = pub['location'] != null;
+                    final likesCount = (pub['likes'] as List?)?.length ?? 0;
+                    final commentsCount = (pub['comments'] as List?)?.length ?? 0;
+
+                    return Column(
+                      children: [
+                        if (index > 0) Divider(color: Colors.black.withValues(alpha: 0.1)),
+                        _buildActivityItem(
+                          icon: hasLocation ? Icons.location_on_rounded : Icons.article_rounded,
+                          title: userName,
+                          subtitle: text.length > 50 ? '${text.substring(0, 50)}...' : text,
+                          time: timeAgo,
+                          color: hasLocation ? const Color(0xFF009944) : const Color(0xFF00CC66),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (likesCount > 0) ...[
+                                Icon(Icons.favorite, size: 16, color: Colors.red),
+                                const SizedBox(width: 4),
+                                Text(
+                                  likesCount.toString(),
+                                  style: TextStyle(fontSize: 12, color: Colors.black54),
+                                ),
+                                const SizedBox(width: 12),
+                              ],
+                              if (commentsCount > 0) ...[
+                                Icon(Icons.comment, size: 16, color: Color(0xFF00FF88)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  commentsCount.toString(),
+                                  style: TextStyle(fontSize: 12, color: Colors.black54),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ),
         ),
       ],
     );
+  }
+
+  /// Formater le temps écoulé
+  String _formatTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inSeconds < 60) {
+      return 'À l\'instant';
+    } else if (difference.inMinutes < 60) {
+      return 'Il y a ${difference.inMinutes}min';
+    } else if (difference.inHours < 24) {
+      return 'Il y a ${difference.inHours}h';
+    } else if (difference.inDays < 7) {
+      return 'Il y a ${difference.inDays}j';
+    } else {
+      return 'Il y a ${(difference.inDays / 7).floor()}sem';
+    }
   }
 
   Widget _buildActivityItem({
@@ -426,6 +680,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     required String subtitle,
     required String time,
     required Color color,
+    Widget? trailing,
   }) {
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -468,16 +723,28 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     color: Colors.black87,
                     fontSize: 14,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-          Text(
-            time,
-            style: TextStyle(
-              color: Colors.black54,
-              fontSize: 12,
-            ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                time,
+                style: TextStyle(
+                  color: Colors.black54,
+                  fontSize: 12,
+                ),
+              ),
+              if (trailing != null) ...[
+                const SizedBox(height: 4),
+                trailing,
+              ],
+            ],
           ),
         ],
       ),
