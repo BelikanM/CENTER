@@ -20,6 +20,9 @@ class ServerConfig {
   /// Liste des adresses IP à tester automatiquement
   /// L'ordre est important: la première IP qui répond sera utilisée
   static const List<String> serverIPs = [
+    // 🌐 Production Render (priorité absolue)
+    'center-backend-pvkq.onrender.com',
+    
     // IP actuelle WiFi (détectée par ipconfig)
     '192.168.1.66',
     
@@ -49,6 +52,11 @@ class ServerConfig {
   
   /// Construire l'URL complète pour une IP donnée
   static String buildUrl(String ip) {
+    // Si c'est le domaine Render (HTTPS)
+    if (ip.contains('onrender.com')) {
+      return 'https://$ip';
+    }
+    // Sinon HTTP pour les IPs locales
     return 'http://$ip:$serverPort';
   }
   
